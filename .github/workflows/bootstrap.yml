@@ -1,10 +1,13 @@
 name: bootstrap-source
 
 on:
-  push:
+  pull_request:
+    branches:
+      - main
     paths:
       - '.source-bootstrap/**'
       - '.github/workflows/bootstrap.yml'
+  workflow_dispatch:
 
 permissions:
   contents: write
