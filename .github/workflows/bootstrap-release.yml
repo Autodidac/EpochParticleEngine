@@ -1,0 +1,67 @@
+name: bootstrap-release
+
+on:
+  pull_request_target:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: write
+  pull-requests: read
+
+concurrency:
+  group: epoch-particle-bootstrap-release
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    if: github.repository == 'Autodidac/EpochParticleEngine'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - name: Check out main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Reconstruct and verify source archive
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat .source-bootstrap/part* | tr -d '\r\n' | base64 --decode > "$RUNNER_TEMP/EpochParticleEngine-v0.1.0-source.zip"
+          echo "a783cfd9491c97dab5ade7325898d49ff64aca2c3900d44ed7d74941c74ab118  $RUNNER_TEMP/EpochParticleEngine-v0.1.0-source.zip" | sha256sum -c -
+          rm -rf "$RUNNER_TEMP/source"
+          mkdir -p "$RUNNER_TEMP/source"
+          unzip -q "$RUNNER_TEMP/EpochParticleEngine-v0.1.0-source.zip" -d "$RUNNER_TEMP/source"
+          test -f "$RUNNER_TEMP/source/EpochParticleEngine-v0.1.0/CMakeLists.txt"
+
+      - name: Replace bootstrap repository with source tree
+        shell: bash
+        run: |
+          set -euo pipefail
+          source_root="$RUNNER_TEMP/source/EpochParticleEngine-v0.1.0"
+          find . -mindepth 1 -maxdepth 1 ! -name .git -exec rm -rf {} +
+          cp -a "$source_root"/. .
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "feat: release EpochParticleEngine v0.1.0"
+          git push origin HEAD:main
+
+      - name: Publish v0.1.0 release
+        shell: bash
+        run: |
+          set -euo pipefail
+          git tag -f -a v0.1.0 -m "EpochParticleEngine v0.1.0"
+          git push --force origin refs/tags/v0.1.0
+          gh release delete v0.1.0 --yes --cleanup-tag 2>/dev/null || true
+          git tag -f -a v0.1.0 -m "EpochParticleEngine v0.1.0"
+          git push --force origin refs/tags/v0.1.0
+          gh release create v0.1.0 \
+            "$RUNNER_TEMP/EpochParticleEngine-v0.1.0-source.zip#EpochParticleEngine v0.1.0 source" \
+            --repo "$GITHUB_REPOSITORY" \
+            --target "$(git rev-parse HEAD)" \
+            --title "EpochParticleEngine v0.1.0" \
+            --notes-file docs/releases/v0.1.0.md
