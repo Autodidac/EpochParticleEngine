@@ -31,12 +31,43 @@ jobs:
           test "${#parts[@]}" -gt 0
           printf 'Importing %s source parts:\n' "${#parts[@]}"
           printf '  %s\n' "${parts[@]}"
-          cat "${parts[@]}" | tr -d '\r\n' | base64 --decode > "$RUNNER_TEMP/source.zip"
-          sha256sum "$RUNNER_TEMP/source.zip"
-          unzip -tq "$RUNNER_TEMP/source.zip"
+
+          candidates="$RUNNER_TEMP/source-candidates"
+          rm -rf "$candidates"
+          mkdir -p "$candidates"
+
+          set +e
+          cat "${parts[@]}" | tr -d '\r\n' | base64 --decode > "$candidates/concat-decode.zip" 2>/dev/null
+
+          : > "$candidates/decode-each.zip"
+          for part in "${parts[@]}"; do
+            tr -d '\r\n' < "$part" | base64 --decode >> "$candidates/decode-each.zip" 2>/dev/null || true
+          done
+
+          cat "${parts[@]}" | tr -d '\r\n' | base64 --decode 2>/dev/null | \
+            base64 --decode > "$candidates/concat-decode-twice.zip" 2>/dev/null
+
+          : > "$candidates/decode-each-twice.zip"
+          for part in "${parts[@]}"; do
+            tr -d '\r\n' < "$part" | base64 --decode 2>/dev/null | \
+              base64 --decode >> "$candidates/decode-each-twice.zip" 2>/dev/null || true
+          done
+          set -e
+
+          source_zip=''
+          for candidate in "$candidates"/*.zip; do
+            printf '%s  %s\n' "$(sha256sum "$candidate" | cut -d' ' -f1)" "$(basename "$candidate")"
+            if unzip -tq "$candidate" >/dev/null 2>&1; then
+              source_zip="$candidate"
+              break
+            fi
+          done
+          test -n "$source_zip"
+          echo "Validated archive reconstruction: $(basename "$source_zip")"
+
           rm -rf "$RUNNER_TEMP/source"
           mkdir -p "$RUNNER_TEMP/source"
-          unzip -q "$RUNNER_TEMP/source.zip" -d "$RUNNER_TEMP/source"
+          unzip -q "$source_zip" -d "$RUNNER_TEMP/source"
           source_root="$RUNNER_TEMP/source/EpochParticleEngine-v0.1.0"
           test -f "$source_root/CMakeLists.txt"
           (
