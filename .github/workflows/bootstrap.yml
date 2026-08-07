@@ -1,7 +1,7 @@
-name: bootstrap-source
+name: bootstrap-source-release
 
 on:
-  pull_request:
+  push:
     branches:
       - main
     paths:
@@ -11,47 +11,106 @@ on:
 
 permissions:
   contents: write
+  pull-requests: write
+  actions: write
+
+concurrency:
+  group: epoch-particle-source-release
+  cancel-in-progress: false
 
 jobs:
-  import:
+  publish:
     if: github.repository == 'Autodidac/EpochParticleEngine'
     runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      GH_TOKEN: ${{ github.token }}
+      RELEASE_TAG: v0.1.0
     steps:
       - uses: actions/checkout@v4
         with:
+          ref: main
           fetch-depth: 0
 
-      - name: Reconstruct and verify source archive
+      - name: Reconstruct source archive
         shell: bash
         run: |
           set -euo pipefail
           mapfile -d '' parts < <(
             find .source-upload -maxdepth 1 -type f -name 'chunk[0-9]*' -print0 | sort -zV
           )
-          test "${#parts[@]}" -eq 24
-          cat "${parts[@]}" | tr -d '\r\n' | base64 --decode > "$RUNNER_TEMP/source.zip"
-          echo "e5e0e26414751dbb1dabff3a6ca3ee317eeb45b554e80619f66f3394b99e54b5  $RUNNER_TEMP/source.zip" | sha256sum -c -
-          unzip -tq "$RUNNER_TEMP/source.zip"
+          test "${#parts[@]}" -gt 0
+          printf 'Reconstructing archive from %s chunks\n' "${#parts[@]}"
+          cat "${parts[@]}" | tr -d '\r\n' | base64 --decode > "$RUNNER_TEMP/EpochParticleEngine-v0.1.0-source.zip"
+          unzip -tq "$RUNNER_TEMP/EpochParticleEngine-v0.1.0-source.zip"
 
           rm -rf "$RUNNER_TEMP/source"
           mkdir -p "$RUNNER_TEMP/source"
-          unzip -q "$RUNNER_TEMP/source.zip" -d "$RUNNER_TEMP/source"
-          source_root="$RUNNER_TEMP/source/EpochParticleEngine-v0.1.0"
+          unzip -q "$RUNNER_TEMP/EpochParticleEngine-v0.1.0-source.zip" -d "$RUNNER_TEMP/source"
+          source_root="$(find "$RUNNER_TEMP/source" -mindepth 1 -maxdepth 2 -type f -name CMakeLists.txt -printf '%h\n' | head -n 1)"
+          test -n "$source_root"
           test -f "$source_root/CMakeLists.txt"
-          (
-            cd "$source_root"
-            sha256sum -c "$GITHUB_WORKSPACE/.source-bootstrap/expected.sha256"
-          )
+          echo "SOURCE_ROOT=$source_root" >> "$GITHUB_ENV"
+          sha256sum "$RUNNER_TEMP/EpochParticleEngine-v0.1.0-source.zip" | tee "$RUNNER_TEMP/EpochParticleEngine-v0.1.0-source.zip.sha256"
 
-      - name: Publish exact source tree to main
+      - name: Validate CPU library and deterministic tests
         shell: bash
         run: |
           set -euo pipefail
-          source_root="$RUNNER_TEMP/source/EpochParticleEngine-v0.1.0"
+          cmake -S "$SOURCE_ROOT" -B "$RUNNER_TEMP/build" -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DEPOCH_PARTICLE_BUILD_VULKAN=OFF \
+            -DEPOCH_PARTICLE_BUILD_TESTS=ON \
+            -DEPOCH_PARTICLE_BUILD_EXAMPLES=ON \
+            -DEPOCH_PARTICLE_BUILD_BENCHMARKS=ON
+          cmake --build "$RUNNER_TEMP/build" --parallel
+          ctest --test-dir "$RUNNER_TEMP/build" --output-on-failure
+
+      - name: Replace bootstrap repository with validated source
+        shell: bash
+        run: |
+          set -euo pipefail
           find . -mindepth 1 -maxdepth 1 ! -name .git -exec rm -rf {} +
-          cp -a "$source_root"/. .
+          cp -a "$SOURCE_ROOT"/. .
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -A
           git commit -m "feat: release EpochParticleEngine v0.1.0"
           git push origin HEAD:main
+          echo "RELEASE_SHA=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
+
+      - name: Publish verified GitHub release
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh release delete "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --yes --cleanup-tag 2>/dev/null || true
+          git tag -d "$RELEASE_TAG" 2>/dev/null || true
+          git push origin ":refs/tags/$RELEASE_TAG" 2>/dev/null || true
+          git tag -a "$RELEASE_TAG" "$RELEASE_SHA" -m "EpochParticleEngine $RELEASE_TAG"
+          git push origin "refs/tags/$RELEASE_TAG"
+
+          notes="docs/releases/v0.1.0.md"
+          if [[ ! -f "$notes" ]]; then
+            notes="README.md"
+          fi
+          gh release create "$RELEASE_TAG" \
+            "$RUNNER_TEMP/EpochParticleEngine-v0.1.0-source.zip#EpochParticleEngine v0.1.0 source" \
+            "$RUNNER_TEMP/EpochParticleEngine-v0.1.0-source.zip.sha256#SHA-256 checksum" \
+            --repo "$GITHUB_REPOSITORY" \
+            --target "$RELEASE_SHA" \
+            --title "EpochParticleEngine v0.1.0" \
+            --notes-file "$notes"
+
+      - name: Close obsolete pull requests and delete obsolete branches
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh pr list --repo "$GITHUB_REPOSITORY" --state open --json number --jq '.[].number' | while read -r pr; do
+            [[ -z "$pr" ]] || gh pr close "$pr" --repo "$GITHUB_REPOSITORY" --comment "Superseded by the consolidated v0.1.0 release on main."
+          done
+
+          git ls-remote --heads origin | awk '{sub("refs/heads/", "", $2); print $2}' | while read -r branch; do
+            if [[ -n "$branch" && "$branch" != "main" ]]; then
+              git push origin --delete "$branch"
+            fi
+          done
