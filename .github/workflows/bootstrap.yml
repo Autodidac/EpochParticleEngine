@@ -26,9 +26,11 @@ jobs:
         run: |
           set -euo pipefail
           mapfile -d '' parts < <(
-            find .source-bootstrap -maxdepth 1 -type f -name 'part*' -print0 | sort -zV
+            find .source-bootstrap -maxdepth 1 -type f -name 'part[0-9][0-9]' -print0 | sort -zV
           )
           test "${#parts[@]}" -gt 0
+          printf 'Importing %s source parts:\n' "${#parts[@]}"
+          printf '  %s\n' "${parts[@]}"
           cat "${parts[@]}" | tr -d '\r\n' | base64 --decode > "$RUNNER_TEMP/source.zip"
           sha256sum "$RUNNER_TEMP/source.zip"
           unzip -tq "$RUNNER_TEMP/source.zip"
