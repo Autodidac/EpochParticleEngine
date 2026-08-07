@@ -1,0 +1,91 @@
+name: finalize-v0.1.0
+
+on:
+  push:
+    branches:
+      - 'finalize/v0.1.0'
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: epoch-particle-finalize-v0.1.0
+  cancel-in-progress: false
+
+jobs:
+  finalize:
+    if: github.repository == 'Autodidac/EpochParticleEngine'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      GH_TOKEN: ${{ github.token }}
+      RELEASE_TAG: v0.1.0
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Build and test exact main source
+        shell: bash
+        run: |
+          set -euo pipefail
+          cmake -S . -B out/finalize -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DEPOCH_PARTICLE_BUILD_VULKAN=OFF \
+            -DEPOCH_PARTICLE_BUILD_TESTS=ON \
+            -DEPOCH_PARTICLE_BUILD_EXAMPLES=ON \
+            -DEPOCH_PARTICLE_BUILD_BENCHMARKS=ON \
+            -DEPOCH_PARTICLE_WARNINGS_AS_ERRORS=ON
+          cmake --build out/finalize --parallel
+          ctest --test-dir out/finalize --output-on-failure
+          ./out/finalize/EpochParticleReplay
+
+      - name: Remove one-time finalizer from main
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git rm .github/workflows/finalize-v0.1.0.yml
+          git commit -m "chore: remove v0.1.0 finalizer"
+          git push origin HEAD:main
+          echo "RELEASE_SHA=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
+
+      - name: Create verified source package
+        shell: bash
+        run: |
+          set -euo pipefail
+          ./scripts/package-source.sh "$RUNNER_TEMP/packages"
+          unzip -tq "$RUNNER_TEMP/packages/EpochParticleEngine-v0.1.0-source.zip"
+
+      - name: Publish GitHub release
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh release delete "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --yes --cleanup-tag 2>/dev/null || true
+          git tag -d "$RELEASE_TAG" 2>/dev/null || true
+          git push origin ":refs/tags/$RELEASE_TAG" 2>/dev/null || true
+          git tag -a "$RELEASE_TAG" "$RELEASE_SHA" -m "EpochParticleEngine $RELEASE_TAG"
+          git push origin "refs/tags/$RELEASE_TAG"
+          gh release create "$RELEASE_TAG" \
+            "$RUNNER_TEMP/packages/EpochParticleEngine-v0.1.0-source.zip#EpochParticleEngine v0.1.0 source" \
+            "$RUNNER_TEMP/packages/EpochParticleEngine-v0.1.0-source.zip.sha256#SHA-256 checksum" \
+            --repo "$GITHUB_REPOSITORY" \
+            --target "$RELEASE_SHA" \
+            --title "EpochParticleEngine v0.1.0" \
+            --notes-file docs/releases/v0.1.0.md
+
+      - name: Close stale pull requests and delete non-main branches
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh pr list --repo "$GITHUB_REPOSITORY" --state open --json number --jq '.[].number' | while read -r pr; do
+            [[ -z "$pr" ]] || gh pr close "$pr" --repo "$GITHUB_REPOSITORY" --comment "Superseded by the consolidated v0.1.0 release on main."
+          done
+          git ls-remote --heads origin | awk '{sub("refs/heads/", "", $2); print $2}' | while read -r branch; do
+            if [[ -n "$branch" && "$branch" != "main" ]]; then
+              git push origin --delete "$branch"
+            fi
+          done
