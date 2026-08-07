@@ -5,7 +5,7 @@ on:
     branches:
       - main
     paths:
-      - '.source-bootstrap/**'
+      - '.source-upload/**'
       - '.github/workflows/bootstrap.yml'
   workflow_dispatch:
 
@@ -21,106 +21,32 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Import source tree
+      - name: Reconstruct and verify source archive
         shell: bash
         run: |
           set -euo pipefail
           mapfile -d '' parts < <(
-            find .source-bootstrap -maxdepth 1 -type f -name 'part[0-9][0-9]' -print0 | sort -zV
+            find .source-upload -maxdepth 1 -type f -name 'chunk[0-9]*' -print0 | sort -zV
           )
-          test "${#parts[@]}" -gt 0
-          printf 'Importing %s source parts:\n' "${#parts[@]}"
-          printf '  %s\n' "${parts[@]}"
-
-          candidates="$RUNNER_TEMP/source-candidates"
-          rm -rf "$candidates"
-          mkdir -p "$candidates"
-
-          set +e
-          cat "${parts[@]}" | tr -d '\r\n' | base64 --decode > "$candidates/concat-decode.zip" 2>/dev/null
-
-          : > "$candidates/decode-each.zip"
-          for part in "${parts[@]}"; do
-            tr -d '\r\n' < "$part" | base64 --decode >> "$candidates/decode-each.zip" 2>/dev/null || true
-          done
-
-          cat "${parts[@]}" | tr -d '\r\n' | base64 --decode 2>/dev/null | \
-            base64 --decode > "$candidates/concat-decode-twice.zip" 2>/dev/null
-
-          : > "$candidates/decode-each-twice.zip"
-          for part in "${parts[@]}"; do
-            tr -d '\r\n' < "$part" | base64 --decode 2>/dev/null | \
-              base64 --decode >> "$candidates/decode-each-twice.zip" 2>/dev/null || true
-          done
-
-          : > "$candidates/first-twice-rest-once.zip"
-          tr -d '\r\n' < "${parts[0]}" | base64 --decode 2>/dev/null | \
-            base64 --decode >> "$candidates/first-twice-rest-once.zip" 2>/dev/null || true
-          for part in "${parts[@]:1}"; do
-            tr -d '\r\n' < "$part" | base64 --decode >> "$candidates/first-twice-rest-once.zip" 2>/dev/null || true
-          done
-
-          : > "$candidates/first-once-rest-twice.zip"
-          tr -d '\r\n' < "${parts[0]}" | base64 --decode >> "$candidates/first-once-rest-twice.zip" 2>/dev/null || true
-          for part in "${parts[@]:1}"; do
-            tr -d '\r\n' < "$part" | base64 --decode 2>/dev/null | \
-              base64 --decode >> "$candidates/first-once-rest-twice.zip" 2>/dev/null || true
-          done
-          set -e
-
-          python3 - "$candidates" <<'PY'
-          from pathlib import Path
-          import sys
-
-          root = Path(sys.argv[1])
-          originals = sorted(root.glob('*.zip'))
-          signature = b'PK\x03\x04'
-          for source in originals:
-              data = source.read_bytes()
-              offset = 0
-              found = 0
-              while found < 64:
-                  index = data.find(signature, offset)
-                  if index < 0:
-                      break
-                  if index > 0:
-                      target = root / f'{source.stem}.trim-{index}.zip'
-                      target.write_bytes(data[index:])
-                  found += 1
-                  offset = index + 1
-          PY
-
-          source_zip=''
-          for candidate in "$candidates"/*.zip; do
-            printf '%s  %s\n' "$(sha256sum "$candidate" | cut -d' ' -f1)" "$(basename "$candidate")"
-            if ! unzip -tq "$candidate" >/dev/null 2>&1; then
-              continue
-            fi
-
-            rm -rf "$RUNNER_TEMP/source-check"
-            mkdir -p "$RUNNER_TEMP/source-check"
-            if ! unzip -q "$candidate" -d "$RUNNER_TEMP/source-check"; then
-              continue
-            fi
-            source_root="$RUNNER_TEMP/source-check/EpochParticleEngine-v0.1.0"
-            if [[ ! -f "$source_root/CMakeLists.txt" ]]; then
-              continue
-            fi
-            if ! (
-              cd "$source_root"
-              sha256sum -c "$GITHUB_WORKSPACE/.source-bootstrap/expected.sha256"
-            ); then
-              continue
-            fi
-            source_zip="$candidate"
-            break
-          done
-          test -n "$source_zip"
-          echo "Validated archive reconstruction: $(basename "$source_zip")"
+          test "${#parts[@]}" -eq 24
+          cat "${parts[@]}" | tr -d '\r\n' | base64 --decode > "$RUNNER_TEMP/source.zip"
+          echo "e5e0e26414751dbb1dabff3a6ca3ee317eeb45b554e80619f66f3394b99e54b5  $RUNNER_TEMP/source.zip" | sha256sum -c -
+          unzip -tq "$RUNNER_TEMP/source.zip"
 
           rm -rf "$RUNNER_TEMP/source"
           mkdir -p "$RUNNER_TEMP/source"
-          unzip -q "$source_zip" -d "$RUNNER_TEMP/source"
+          unzip -q "$RUNNER_TEMP/source.zip" -d "$RUNNER_TEMP/source"
+          source_root="$RUNNER_TEMP/source/EpochParticleEngine-v0.1.0"
+          test -f "$source_root/CMakeLists.txt"
+          (
+            cd "$source_root"
+            sha256sum -c "$GITHUB_WORKSPACE/.source-bootstrap/expected.sha256"
+          )
+
+      - name: Publish exact source tree to main
+        shell: bash
+        run: |
+          set -euo pipefail
           source_root="$RUNNER_TEMP/source/EpochParticleEngine-v0.1.0"
           find . -mindepth 1 -maxdepth 1 ! -name .git -exec rm -rf {} +
           cp -a "$source_root"/. .
