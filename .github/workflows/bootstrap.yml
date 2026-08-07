@@ -1,0 +1,38 @@
+name: bootstrap-source
+
+on:
+  push:
+    paths:
+      - '.source-bootstrap/**'
+      - '.github/workflows/bootstrap.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  import:
+    if: github.repository == 'Autodidac/EpochParticleEngine'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Import source tree
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat .source-bootstrap/part* | tr -d '\r\n' | base64 --decode > "$RUNNER_TEMP/source.zip"
+          echo "a783cfd9491c97dab5ade7325898d49ff64aca2c3900d44ed7d74941c74ab118  $RUNNER_TEMP/source.zip" | sha256sum -c -
+          rm -rf "$RUNNER_TEMP/source"
+          mkdir -p "$RUNNER_TEMP/source"
+          unzip -q "$RUNNER_TEMP/source.zip" -d "$RUNNER_TEMP/source"
+          source_root="$RUNNER_TEMP/source/EpochParticleEngine-v0.1.0"
+          test -f "$source_root/CMakeLists.txt"
+          find . -mindepth 1 -maxdepth 1 ! -name .git -exec rm -rf {} +
+          cp -a "$source_root"/. .
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "feat: release EpochParticleEngine v0.1.0"
+          git push origin HEAD:main
