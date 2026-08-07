@@ -1,0 +1,213 @@
+{
+  "version": 6,
+  "cmakeMinimumRequired": {
+    "major": 3,
+    "minor": 28,
+    "patch": 0
+  },
+  "configurePresets": [
+    {
+      "name": "base-ninja",
+      "hidden": true,
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/out/build/${presetName}",
+      "cacheVariables": {
+        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
+        "EPOCH_PARTICLE_BUILD_TESTS": "ON",
+        "EPOCH_PARTICLE_BUILD_EXAMPLES": "ON"
+      }
+    },
+    {
+      "name": "cpu-debug",
+      "displayName": "CPU-only Debug",
+      "inherits": "base-ninja",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "EPOCH_PARTICLE_BUILD_VULKAN": "OFF"
+      }
+    },
+    {
+      "name": "cpu-release",
+      "displayName": "CPU-only Release",
+      "inherits": "base-ninja",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "EPOCH_PARTICLE_BUILD_VULKAN": "OFF"
+      }
+    },
+    {
+      "name": "vulkan-debug",
+      "displayName": "Vulkan Debug with vcpkg",
+      "inherits": "base-ninja",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "CMAKE_TOOLCHAIN_FILE": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake",
+        "EPOCH_PARTICLE_BUILD_VULKAN": "ON"
+      }
+    },
+    {
+      "name": "vulkan-release",
+      "displayName": "Vulkan Release with vcpkg",
+      "inherits": "base-ninja",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "CMAKE_TOOLCHAIN_FILE": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake",
+        "EPOCH_PARTICLE_BUILD_VULKAN": "ON"
+      }
+    },
+    {
+      "name": "sanitize",
+      "displayName": "Clang ASan and UBSan",
+      "inherits": "base-ninja",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "CMAKE_CXX_COMPILER": "clang++",
+        "EPOCH_PARTICLE_BUILD_VULKAN": "OFF",
+        "EPOCH_PARTICLE_ENABLE_SANITIZERS": "ON",
+        "EPOCH_PARTICLE_BUILD_EXAMPLES": "OFF"
+      }
+    },
+    {
+      "name": "vs2026-cpu",
+      "displayName": "Visual Studio 2026 CPU-only",
+      "generator": "Visual Studio 18 2026",
+      "architecture": "x64",
+      "binaryDir": "${sourceDir}/out/build/${presetName}",
+      "cacheVariables": {
+        "EPOCH_PARTICLE_BUILD_VULKAN": "OFF",
+        "EPOCH_PARTICLE_BUILD_TESTS": "ON",
+        "EPOCH_PARTICLE_BUILD_EXAMPLES": "ON"
+      }
+    },
+    {
+      "name": "vs2026-vulkan",
+      "displayName": "Visual Studio 2026 Vulkan (v145)",
+      "generator": "Visual Studio 18 2026",
+      "architecture": "x64",
+      "binaryDir": "${sourceDir}/out/build/${presetName}",
+      "cacheVariables": {
+        "CMAKE_TOOLCHAIN_FILE": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake",
+        "EPOCH_PARTICLE_BUILD_VULKAN": "ON",
+        "EPOCH_PARTICLE_BUILD_TESTS": "ON",
+        "EPOCH_PARTICLE_BUILD_EXAMPLES": "ON"
+      }
+    },
+    {
+      "name": "vs2022-vulkan",
+      "displayName": "Visual Studio 2022 Vulkan fallback (v143)",
+      "generator": "Visual Studio 17 2022",
+      "architecture": "x64",
+      "binaryDir": "${sourceDir}/out/build/${presetName}",
+      "cacheVariables": {
+        "CMAKE_TOOLCHAIN_FILE": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake",
+        "EPOCH_PARTICLE_BUILD_VULKAN": "ON",
+        "EPOCH_PARTICLE_BUILD_TESTS": "ON",
+        "EPOCH_PARTICLE_BUILD_EXAMPLES": "ON"
+      }
+    }
+  ],
+  "buildPresets": [
+    { "name": "cpu-debug", "configurePreset": "cpu-debug" },
+    { "name": "cpu-release", "configurePreset": "cpu-release" },
+    { "name": "vulkan-debug", "configurePreset": "vulkan-debug" },
+    { "name": "vulkan-release", "configurePreset": "vulkan-release" },
+    { "name": "sanitize", "configurePreset": "sanitize" },
+    {
+      "name": "vs2026-cpu-debug",
+      "configurePreset": "vs2026-cpu",
+      "configuration": "Debug"
+    },
+    {
+      "name": "vs2026-cpu-release",
+      "configurePreset": "vs2026-cpu",
+      "configuration": "Release"
+    },
+    {
+      "name": "vs2026-vulkan-debug",
+      "configurePreset": "vs2026-vulkan",
+      "configuration": "Debug"
+    },
+    {
+      "name": "vs2026-vulkan-release",
+      "configurePreset": "vs2026-vulkan",
+      "configuration": "Release"
+    },
+    {
+      "name": "vs2022-vulkan-debug",
+      "configurePreset": "vs2022-vulkan",
+      "configuration": "Debug"
+    },
+    {
+      "name": "vs2022-vulkan-release",
+      "configurePreset": "vs2022-vulkan",
+      "configuration": "Release"
+    }
+  ],
+  "testPresets": [
+    {
+      "name": "cpu-debug",
+      "configurePreset": "cpu-debug",
+      "output": { "outputOnFailure": true }
+    },
+    {
+      "name": "cpu-release",
+      "configurePreset": "cpu-release",
+      "output": { "outputOnFailure": true }
+    },
+    {
+      "name": "vulkan-debug",
+      "configurePreset": "vulkan-debug",
+      "output": { "outputOnFailure": true }
+    },
+    {
+      "name": "vulkan-release",
+      "configurePreset": "vulkan-release",
+      "output": { "outputOnFailure": true }
+    },
+    {
+      "name": "sanitize",
+      "configurePreset": "sanitize",
+      "output": { "outputOnFailure": true },
+      "environment": {
+        "ASAN_OPTIONS": "detect_leaks=1:strict_string_checks=1",
+        "UBSAN_OPTIONS": "print_stacktrace=1"
+      }
+    },
+    {
+      "name": "vs2026-cpu-debug",
+      "configurePreset": "vs2026-cpu",
+      "configuration": "Debug",
+      "output": { "outputOnFailure": true }
+    },
+    {
+      "name": "vs2026-cpu-release",
+      "configurePreset": "vs2026-cpu",
+      "configuration": "Release",
+      "output": { "outputOnFailure": true }
+    },
+    {
+      "name": "vs2026-vulkan-debug",
+      "configurePreset": "vs2026-vulkan",
+      "configuration": "Debug",
+      "output": { "outputOnFailure": true }
+    },
+    {
+      "name": "vs2026-vulkan-release",
+      "configurePreset": "vs2026-vulkan",
+      "configuration": "Release",
+      "output": { "outputOnFailure": true }
+    },
+    {
+      "name": "vs2022-vulkan-debug",
+      "configurePreset": "vs2022-vulkan",
+      "configuration": "Debug",
+      "output": { "outputOnFailure": true }
+    },
+    {
+      "name": "vs2022-vulkan-release",
+      "configurePreset": "vs2022-vulkan",
+      "configuration": "Release",
+      "output": { "outputOnFailure": true }
+    }
+  ]
+}

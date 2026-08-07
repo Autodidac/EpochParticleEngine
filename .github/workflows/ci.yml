@@ -1,0 +1,167 @@
+name: ci
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  linux-cpu:
+    name: Linux CPU (${{ matrix.compiler }})
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - compiler: GCC
+            cxx: g++
+          - compiler: Clang
+            cxx: clang++
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure
+        run: >-
+          cmake -S . -B out/ci-linux-${{ matrix.compiler }} -G Ninja
+          -DCMAKE_BUILD_TYPE=Debug
+          -DCMAKE_CXX_COMPILER=${{ matrix.cxx }}
+          -DEPOCH_PARTICLE_BUILD_VULKAN=OFF
+          -DEPOCH_PARTICLE_BUILD_TESTS=ON
+          -DEPOCH_PARTICLE_BUILD_EXAMPLES=ON
+          -DEPOCH_PARTICLE_WARNINGS_AS_ERRORS=ON
+      - name: Build
+        run: cmake --build out/ci-linux-${{ matrix.compiler }} --parallel
+      - name: Test
+        run: ctest --test-dir out/ci-linux-${{ matrix.compiler }} --output-on-failure
+
+  linux-shared-package:
+    name: Linux shared library and installed-package consumer
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure shared library
+        run: >-
+          cmake -S . -B out/ci-linux-shared -G Ninja
+          -DCMAKE_BUILD_TYPE=Release
+          -DEPOCH_PARTICLE_BUILD_SHARED=ON
+          -DEPOCH_PARTICLE_BUILD_VULKAN=OFF
+          -DEPOCH_PARTICLE_BUILD_TESTS=ON
+          -DEPOCH_PARTICLE_BUILD_EXAMPLES=ON
+          -DEPOCH_PARTICLE_WARNINGS_AS_ERRORS=ON
+      - name: Build and test
+        run: |
+          cmake --build out/ci-linux-shared --parallel
+          ctest --test-dir out/ci-linux-shared --output-on-failure
+      - name: Install SDK and build external consumer
+        run: |
+          cmake --install out/ci-linux-shared --prefix "$RUNNER_TEMP/epoch-particle-sdk"
+          cmake -S tests/package_consumer -B out/ci-package-consumer -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_PREFIX_PATH="$RUNNER_TEMP/epoch-particle-sdk"
+          cmake --build out/ci-package-consumer --parallel
+          LD_LIBRARY_PATH="$RUNNER_TEMP/epoch-particle-sdk/lib" \
+            ./out/ci-package-consumer/EpochParticlePackageConsumer
+
+  macos-cpu:
+    name: macOS 15 ARM64 CPU (Apple Clang)
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure
+        run: >-
+          cmake -S . -B out/ci-macos -G Ninja
+          -DCMAKE_BUILD_TYPE=Debug
+          -DCMAKE_CXX_COMPILER=clang++
+          -DEPOCH_PARTICLE_BUILD_VULKAN=OFF
+          -DEPOCH_PARTICLE_BUILD_TESTS=ON
+          -DEPOCH_PARTICLE_BUILD_EXAMPLES=ON
+          -DEPOCH_PARTICLE_WARNINGS_AS_ERRORS=ON
+      - name: Build
+        run: cmake --build out/ci-macos --parallel
+      - name: Test
+        run: ctest --test-dir out/ci-macos --output-on-failure
+
+  windows-cpu:
+    name: Windows Server 2025 / Visual Studio 2026 CPU
+    runs-on: windows-2025-vs2026
+    steps:
+      - uses: actions/checkout@v4
+      - name: Tool versions
+        run: cmake --version
+      - name: Configure
+        run: >-
+          cmake -S . -B out/ci-windows
+          -G "Visual Studio 18 2026" -A x64
+          -DEPOCH_PARTICLE_BUILD_VULKAN=OFF
+          -DEPOCH_PARTICLE_BUILD_TESTS=ON
+          -DEPOCH_PARTICLE_BUILD_EXAMPLES=ON
+          -DEPOCH_PARTICLE_WARNINGS_AS_ERRORS=ON
+      - name: Build
+        run: cmake --build out/ci-windows --config Debug --parallel
+      - name: Test
+        run: ctest --test-dir out/ci-windows -C Debug --output-on-failure
+
+  sanitize:
+    name: Clang ASan and UBSan
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure
+        run: >-
+          cmake -S . -B out/ci-sanitize -G Ninja
+          -DCMAKE_BUILD_TYPE=Debug
+          -DCMAKE_CXX_COMPILER=clang++
+          -DEPOCH_PARTICLE_BUILD_VULKAN=OFF
+          -DEPOCH_PARTICLE_BUILD_TESTS=ON
+          -DEPOCH_PARTICLE_BUILD_EXAMPLES=OFF
+          -DEPOCH_PARTICLE_ENABLE_SANITIZERS=ON
+          -DEPOCH_PARTICLE_WARNINGS_AS_ERRORS=ON
+      - name: Build
+        run: cmake --build out/ci-sanitize --parallel
+      - name: Test
+        env:
+          ASAN_OPTIONS: detect_leaks=1:strict_string_checks=1
+          UBSAN_OPTIONS: print_stacktrace=1
+        run: ctest --test-dir out/ci-sanitize --output-on-failure
+
+  vulkan-compile:
+    name: Vulkan compile with pinned manifest dependencies
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Checkout pinned EpochPlatformEngine
+        uses: actions/checkout@v4
+        with:
+          repository: Autodidac/EpochPlatformEngine
+          ref: 4c5aee6cf419bd163759d71a7d3a3c1e35c66db8
+          path: external/EpochPlatformEngine
+      - name: Install system window dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libvulkan-dev libxinerama-dev libxcursor-dev xorg-dev libglu1-mesa-dev pkg-config
+      - name: Bootstrap pinned vcpkg
+        env:
+          VCPKG_BASELINE: d92484ed3c5020c6679d095ad3e5add907887b62
+        run: |
+          git init "$RUNNER_TEMP/vcpkg"
+          git -C "$RUNNER_TEMP/vcpkg" remote add origin https://github.com/microsoft/vcpkg.git
+          git -C "$RUNNER_TEMP/vcpkg" fetch --depth 1 origin "$VCPKG_BASELINE"
+          git -C "$RUNNER_TEMP/vcpkg" checkout --detach FETCH_HEAD
+          "$RUNNER_TEMP/vcpkg/bootstrap-vcpkg.sh" -disableMetrics
+      - name: Configure
+        run: >-
+          cmake -S . -B out/ci-vulkan -G Ninja
+          -DCMAKE_BUILD_TYPE=Release
+          -DCMAKE_TOOLCHAIN_FILE="$RUNNER_TEMP/vcpkg/scripts/buildsystems/vcpkg.cmake"
+          -DEPOCH_PARTICLE_BUILD_VULKAN=ON
+          -DEPOCH_PLATFORM_SOURCE_DIR="${{ github.workspace }}/external/EpochPlatformEngine"
+          -DEPOCH_PARTICLE_FETCH_EPOCH_PLATFORM=OFF
+          -DEPOCH_PARTICLE_BUILD_TESTS=ON
+          -DEPOCH_PARTICLE_BUILD_EXAMPLES=ON
+          -DEPOCH_PARTICLE_WARNINGS_AS_ERRORS=ON
+      - name: Build
+        run: cmake --build out/ci-vulkan --parallel
+      - name: CPU tests
+        run: ctest --test-dir out/ci-vulkan --output-on-failure

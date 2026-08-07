@@ -1,0 +1,15 @@
+@PACKAGE_INIT@
+
+include(CMakeFindDependencyMacro)
+find_dependency(Threads)
+
+if(@EPOCH_PARTICLE_PACKAGE_HAS_VULKAN@)
+    find_dependency(Vulkan 1.2)
+    find_dependency(unofficial-shaderc CONFIG)
+    if(UNIX AND NOT APPLE)
+        find_dependency(X11)
+    endif()
+endif()
+
+include("${CMAKE_CURRENT_LIST_DIR}/EpochParticleEngineTargets.cmake")
+check_required_components(EpochParticleEngine)

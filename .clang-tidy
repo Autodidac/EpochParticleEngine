@@ -1,0 +1,16 @@
+Checks: >
+  -*,
+  bugprone-*,
+  clang-analyzer-*,
+  concurrency-*,
+  cppcoreguidelines-pro-type-member-init,
+  modernize-*,
+  performance-*,
+  portability-*,
+  readability-avoid-const-params-in-decls,
+  readability-container-size-empty,
+  readability-duplicate-include,
+  readability-inconsistent-declaration-parameter-name
+WarningsAsErrors: ''
+HeaderFilterRegex: '^(include|src|app|examples|tests)/'
+FormatStyle: file

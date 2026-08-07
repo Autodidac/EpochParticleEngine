@@ -1,0 +1,6 @@
+#include "main.cpp.parts/part00.inc"
+#include "main.cpp.parts/part01.inc"
+#include "main.cpp.parts/part02.inc"
+#include "main.cpp.parts/part03.inc"
+#include "main.cpp.parts/part04.inc"
+#include "main.cpp.parts/part05.inc"

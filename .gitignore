@@ -1,35 +1,23 @@
-# Prerequisites
-*.d
-
-# Compiled Object files
-*.slo
-*.lo
-*.o
+/build/
+/build-*/
+/out/
+.vs/
+.vscode/settings.json
+CMakeUserPresets.json
+compile_commands.json
+*.user
+*.suo
+*.VC.db
+*.VC.opendb
 *.obj
-
-# Precompiled Headers
-*.gch
-*.pch
-
-# Compiled Dynamic libraries
-*.so
-*.dylib
-*.dll
-
-# Fortran module files
-*.mod
-*.smod
-
-# Compiled Static libraries
-*.lai
-*.la
+*.o
 *.a
 *.lib
-
-# Executables
+*.dll
+*.so
+*.dylib
 *.exe
-*.out
-*.app
-
-x64/*
-.vs/*
+*.pdb
+*.ilk
+*.log
+.DS_Store
