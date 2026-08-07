@@ -25,13 +25,22 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          cat .source-bootstrap/part* | tr -d '\r\n' | base64 --decode > "$RUNNER_TEMP/source.zip"
-          echo "a783cfd9491c97dab5ade7325898d49ff64aca2c3900d44ed7d74941c74ab118  $RUNNER_TEMP/source.zip" | sha256sum -c -
+          mapfile -d '' parts < <(
+            find .source-bootstrap -maxdepth 1 -type f -name 'part*' -print0 | sort -zV
+          )
+          test "${#parts[@]}" -gt 0
+          cat "${parts[@]}" | tr -d '\r\n' | base64 --decode > "$RUNNER_TEMP/source.zip"
+          sha256sum "$RUNNER_TEMP/source.zip"
+          unzip -tq "$RUNNER_TEMP/source.zip"
           rm -rf "$RUNNER_TEMP/source"
           mkdir -p "$RUNNER_TEMP/source"
           unzip -q "$RUNNER_TEMP/source.zip" -d "$RUNNER_TEMP/source"
           source_root="$RUNNER_TEMP/source/EpochParticleEngine-v0.1.0"
           test -f "$source_root/CMakeLists.txt"
+          (
+            cd "$source_root"
+            sha256sum -c "$GITHUB_WORKSPACE/.source-bootstrap/expected.sha256"
+          )
           find . -mindepth 1 -maxdepth 1 ! -name .git -exec rm -rf {} +
           cp -a "$source_root"/. .
           git config user.name "github-actions[bot]"
