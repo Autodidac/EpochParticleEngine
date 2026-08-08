@@ -60,7 +60,9 @@ Equivalent CMake options:
 -DEPOCHGUI_SOURCE_DIR=/path/to/EpochGui
 ```
 
-The current adapter uses EpochGui selectable-list geometry. Visual output still goes through `RenderFrame` and the particle Vulkan renderer. A larger editor can replace the compact overlay with EpochGui panels, splitters, timelines, palettes, and property controls without changing scene code.
+The adapter targets EpochGui v0.87.43 and uses its current `epoch/gui` selectable-list geometry. The mirror intentionally provides backend-neutral layout rather than font rendering.
+
+Text remains renderer-owned: `RenderFrame` emits one packed command per glyph and the Vulkan fragment shader rasterizes the bitmap on the GPU. A larger editor can replace the compact overlay with EpochGui panels, splitters, timelines, palettes, and property controls without changing scene code.
 
 ## EpochAudioEngine
 

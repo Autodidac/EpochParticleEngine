@@ -127,3 +127,20 @@
                 && frame.items()[2].layer == 10,
             "RenderFrame layer ordering failed");
 
+        RenderFrame text_frame{ 8 };
+        text_frame.begin({ 320.0F, 200.0F });
+        text_frame.text(
+            { 4.0F, 8.0F },
+            "HI",
+            TextSize{ 14.0F, 1.0F },
+            { 1.0F, 1.0F, 1.0F, 1.0F });
+        text_frame.finalize();
+        require(text_frame.items().size() == 2U,
+            "RenderFrame did not emit one GPU instance per glyph");
+        require(text_frame.items()[0].shape == PrimitiveShape::bitmap_glyph
+                && text_frame.items()[1].shape == PrimitiveShape::bitmap_glyph,
+            "RenderFrame text did not use GPU glyph primitives");
+        require(text_frame.items()[0].glyph_bitmap != 0U
+                && text_frame.items()[1].glyph_bitmap != 0U,
+            "RenderFrame emitted an empty GPU glyph bitmap");
+

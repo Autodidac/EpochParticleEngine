@@ -205,6 +205,9 @@ namespace
         require(
             resolved_text_pixel_height({ 16.0F, 2.0F }) == 32.0F,
             "TextSize did not resolve logical pixels through DPI scale");
+        require(resolved_text_pixel_height({ 8.0F, 2.0F }) == 24.0F,
+            "TextSize bypassed the minimum readable logical height");
+
         require(
             make_bitmap_text_metrics({ -1.0F, -1.0F }).pixel_height
                 == default_text_logical_height,

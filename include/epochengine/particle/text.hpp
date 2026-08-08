@@ -31,7 +31,9 @@ namespace epochengine::particle
     [[nodiscard]] constexpr float resolved_text_pixel_height(TextSize size) noexcept
     {
         const float logical_height = size.logical_height > 0.0F
-            ? size.logical_height
+            ? (size.logical_height < minimum_readable_text_logical_height
+                ? minimum_readable_text_logical_height
+                : size.logical_height)
             : default_text_logical_height;
         const float dpi_scale = size.dpi_scale > 0.0F ? size.dpi_scale : 1.0F;
         return logical_height * dpi_scale;
