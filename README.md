@@ -1,130 +1,187 @@
 # EpochParticleEngine
 
-EpochParticleEngine is a cross-platform C++23 library for deterministic particles, physics particles, cellular automata, and simulations that couple particle and grid representations. The repository ships a headless SDK, nine reference scenes, a native Vulkan renderer, and an interactive lab hosted by EpochPlatformEngine's internal entrypoint.
+EpochParticleEngine is a cross-platform C++23 library for deterministic particles, physics particles, cellular automata, grid/particle hybrids, and interactive simulation tooling. The repository ships a renderer-neutral core library, a native Vulkan backend, EpochPlatformEngine internal-entrypoint integration, headless/replay tools, and **Particle Studio**: a live particle scene builder.
 
-## What is included
+## Particle Studio
 
-| Key | Scene | Model |
+Particle Studio is scene 1 and opens by default. It is not a canned animation: it is an editable simulation playground.
+
+Place and combine:
+
+- particle emitters;
+- attractors and repulsors;
+- vortices;
+- circular collision obstacles;
+- burst emitters;
+- randomized layouts;
+- live erase/clear operations.
+
+Controls inside Particle Studio:
+
+- **Left mouse:** place the selected tool.
+- **Right mouse:** erase the nearest editor object.
+- **Middle mouse:** instant particle burst.
+- **Shift:** larger/stronger placement or larger erase radius.
+- **Ctrl+S:** save `EpochParticleStudio.epscene` in the working directory.
+- **Ctrl+L:** load `EpochParticleStudio.epscene`.
+
+Scene documents are validated before application. A malformed document is rejected without mutating the current editor state. The serialization hook is optional at the `IScene` level, so ordinary simulation scenes are not forced into an editor/document model.
+
+## Included scenes
+
+| # | Scene | Model |
 |---:|---|---|
-| 1 | Deterministic Fountain | Q16.16 fixed-point integration, PCG32 emission, stable IDs, and replay hashes |
-| 2 | Cellular Automata | Double-buffered toroidal Conway Life with paint and erase input |
-| 3 | Particle Life | Multi-species attraction and repulsion over a deterministic CSR spatial index |
-| 4 | Hybrid Sand Lab | Falling-material cells coupled to ballistic particles, collisions, liquids, and deposition |
-| 5 | Fire and Smoke | Reactive wood, oil, water, acid, fire, smoke, and ember particles |
-| 6 | Fireworks | Emitters, trails, timed bursts, and simulation events |
-| 7 | Binary Galaxy | Two orbiting attractors and gravitational particles |
-| 8 | Boids | Separation, alignment, cohesion, obstacle avoidance, and pointer steering |
-| 9 | SPH Fluid | Grid-accelerated density, pressure, viscosity, gravity, and boundaries |
+| 1 | **Particle Studio** | Editable emitters, fields, vortices, obstacles, collisions, bursts, save/load |
+| 2 | Deterministic Fountain | Q16.16 fixed-point integration, PCG32 emission, stable IDs, replay hashes |
+| 3 | **Flow Field** | 5,200 particles advected through a changing analytic vector field |
+| 4 | Particle Life | Multi-species attraction/repulsion over deterministic CSR spatial indexing |
+| 5 | Cellular Automata | Double-buffered toroidal Conway Life with paint/erase |
+| 6 | **Reaction Diffusion** | Gray-Scott grid chemistry with deterministic seeding and live paint/erase |
+| 7 | Hybrid Sand Lab | Falling-material cells coupled to ballistic particles, liquids, collisions, deposition |
+| 8 | Fire and Smoke | Reactive wood, oil, water, acid, fire, smoke, and embers |
+| 9 | Fireworks | Emitters, trails, timed bursts, and simulation events |
+| 10 | Binary Galaxy | Orbiting attractors and gravitational particles |
+| 11 | Boids | Separation, alignment, cohesion, obstacle avoidance, pointer steering |
+| 12 | SPH Fluid | Grid-accelerated density, pressure, viscosity, gravity, boundaries |
+| 13 | **Spring Cloth** | Verlet cloth, structural/shear constraints, pulling, collision, tearing |
+| 14 | **Physarum Trails** | Agent/grid slime-mold hybrid with chemotaxis and diffusing trails |
+| 15 | **Weather Lab** | Rain, snow, hail, gusts, bounce, drag, pointer-driven vortex wind |
 
-The core also provides:
+The original scenes remain intentionally different models rather than cosmetic presets. v0.2.0 adds five new simulation families plus the editor and wraps reference scenes in a lightweight showcase overlay so scene identity and controls are obvious while testing.
 
-- a fixed-step scheduler with bounded catch-up, pause, time scale, reset, and single-step;
+## Global controls
+
+- `1` through `9`: select the first nine scenes directly.
+- `Tab` / `Shift+Tab`: next / previous scene across all 15.
+- Click any scene in the side panel, including scenes 10–15.
+- `Space`: pause/resume.
+- `.`: advance one fixed tick.
+- `R`: deterministic reset.
+- `-` / `+`: halve/double simulation speed.
+- `F1`: hide/show the side panel.
+- Left/right mouse: scene-specific interaction.
+- `Ctrl+S` / `Ctrl+L`: save/load when the active scene exposes an editable document.
+- `Esc`: exit.
+
+## Core library
+
+The core is independent of Vulkan, native windowing, EpochGui, audio, and media. It provides:
+
+- fixed-step scheduling with bounded catch-up, pause, time scale, reset, and single-step;
 - structure-of-arrays particle storage with stable IDs and stable compaction;
-- a persistent `std::jthread` task arena with deterministic phase rules;
-- deterministic compressed-sparse-row spatial indexing;
-- a material grid for granular, liquid, gaseous, flammable, and corrosive cells;
-- Q16.16 fixed-point arithmetic, PCG32, coordinate hashing, and stable state hashes;
-- renderer-neutral circles, rectangles, rounded rectangles, lines, and compact text;
-- simulation events for emission, collision, explosion, ignition, and material deposition;
-- deterministic tests, sanitizers, a replay validator, a headless scene sweep, and a benchmark.
-- static and shared linkage, an installable CMake package, and an external package-consumer smoke test.
+- persistent `std::jthread` task execution;
+- deterministic CSR spatial indexing;
+- reactive material grids for granular/liquid/gas/fire/corrosion simulations;
+- Q16.16 fixed-point math, PCG32, coordinate hashing, and stable state hashes;
+- renderer-neutral circles, rectangles, rounded rectangles, lines, and text;
+- simulation events for emissions, impacts, explosions, ignition, and deposits;
+- optional scene-document serialization through `IScene::scene_document()` and `apply_scene_document()`;
+- static/shared linkage and installable CMake package exports.
 
-## Targets and dependency boundaries
+Basic consumer:
+
+```cpp
+#include <epochengine/particle/epoch_particle_engine.hpp>
+
+using namespace epochengine::particle;
+
+int main()
+{
+    Simulation simulation({
+        .fixed_step = std::chrono::nanoseconds{16'666'667},
+        .maximum_catch_up_steps = 8,
+        .seed = 42,
+        .worker_count = TaskArena::recommended_worker_count()
+    });
+
+    simulation.resize({1280.0F, 720.0F});
+    simulation.step_once();
+
+    RenderFrame frame;
+    frame.begin(simulation.bounds());
+    simulation.render(frame);
+    frame.finalize();
+    return frame.items().empty() ? 1 : 0;
+}
+```
+
+CMake consumer:
+
+```cmake
+find_package(EpochParticleEngine CONFIG REQUIRED)
+target_link_libraries(MySimulation PRIVATE EpochParticleEngine::Core)
+```
+
+## Targets
 
 | Target | Purpose | Required dependencies |
 |---|---|---|
-| `EpochParticleEngine::Core` | Simulation library | C++23 and threads only |
-| `EpochParticleEngine::Vulkan` | Native Vulkan renderer | Vulkan, shaderc, and the platform window library selected by the OS |
-| `EpochParticleLab` | Interactive example | Core, Vulkan renderer, and EpochPlatformEngine static/internal-entrypoint targets |
-| `EpochParticleHeadless` | CSV scene sweep | Core |
-| `EpochParticleReplay` | Serial versus parallel hash validation | Core |
+| `EpochParticleEngine::Core` | Simulation library | C++23 + threads |
+| `EpochParticleEngine::Vulkan` | Native Vulkan renderer | Vulkan + shaderc + OS surface support |
+| `EpochParticleLab` | Particle Studio / interactive scene browser | Core + Vulkan + EpochPlatformEngine |
+| `EpochParticleHeadless` | Headless scene sweep | Core |
+| `EpochParticleReplay` | Serial-vs-parallel replay validation | Core |
 | `EpochParticleBenchmark` | Optional CPU benchmark | Core |
-
-The core never includes Vulkan, native-window, EpochGui, audio, or media headers. EpochGui is optional and is only used for layout geometry in the lab. EpochAudioEngine and EpochMediaEngine remain optional consumers of events and rendered frames rather than mandatory dependencies.
 
 ## Vulkan renderer
 
-`EpochParticleEngineVulkan` consumes a finalized `RenderFrame`, uploads a 48-byte record per item to persistently mapped storage buffers, and renders the batch as instanced six-vertex quads. Circle and rounded-box coverage are evaluated in the fragment shader.
+`EpochParticleEngine::Vulkan` consumes finalized `RenderFrame` batches and renders instanced quads. Circle and rounded-rectangle coverage are evaluated in the fragment shader.
 
-The renderer includes:
+The backend includes:
 
-- direct Win32, Xlib, and Cocoa/Metal Vulkan surface creation;
-- no GLFW dependency and no Vulkan types in the public header;
+- direct Win32, Xlib, and Cocoa/Metal surface creation;
+- WSI entrypoint resolution through `vkGetInstanceProcAddr`;
+- no GLFW dependency;
 - physical-device scoring and graphics/present queue selection;
-- validation fallback when the requested layer is unavailable;
-- Vulkan portability enumeration and portability-subset handling for MoltenVK;
-- sRGB swapchains, FIFO vsync, and mailbox/immediate fallback;
-- per-frame command pools, semaphores, fences, and image ownership;
+- validation fallback;
+- Vulkan portability enumeration for MoltenVK;
+- sRGB swapchains with FIFO/mailbox/immediate selection;
 - resize/out-of-date swapchain recreation;
-- automatically growing storage buffers;
+- persistently mapped, automatically growing GPU buffers;
 - runtime GLSL-to-SPIR-V compilation through shaderc.
 
-The renderer accepts a platform-neutral native descriptor:
+## Epoch ecosystem boundaries
 
-```cpp
-#include <epochengine/particle/vulkan/renderer.hpp>
-
-using namespace epochengine::particle::vulkan;
-
-NativeSurface surface{
-    .kind = NativeSurfaceKind::win32,
-    .window = native_hwnd
-};
-
-auto renderer = Renderer::create(surface, {
-    .enable_validation = true,
-    .vertical_sync = true
-});
-```
-
-The included lab converts `epochengine::platform::NativeWindowHandle` to this descriptor inside the EpochPlatformEngine context initialization callback. Application code does not define `main()` or `WinMain()`; EpochPlatformEngine supplies the internal entrypoint archive.
+- **EpochPlatformEngine:** owns process entry, native windows, event pumps, context routes, and owner-thread callbacks. `EpochParticleLab` uses its static internal entrypoint.
+- **EpochGui:** optional and read-only from this repository's perspective. Enable it to consume public layout primitives; EpochParticleEngine does not modify EpochGui.
+- **EpochAudioEngine:** can consume `Simulation::events()` for impacts, explosions, ignition, and emission sounds without entering deterministic state.
+- **EpochMediaEngine:** can capture finalized render frames through a separate adapter without entering simulation hashes.
 
 ## Requirements
 
-- CMake 3.28 or newer for Ninja and Visual Studio 2022 builds
-- CMake 4.2 or newer for the native Visual Studio 2026 generator
-- A C++23 compiler
-- Ninja, Visual Studio 2026/v145, Visual Studio 2022/v143, GCC, Clang, or Apple Clang
-- Vulkan loader and headers plus shaderc for `EpochParticleEngine::Vulkan`
-- EpochPlatformEngine for `EpochParticleLab`; a sibling checkout, installed package, explicit path, or pinned FetchContent fallback is supported
-- X11 development headers on Linux for the current native Linux surface path
-- MoltenVK or another Vulkan portability implementation on macOS
+- CMake 3.28+ for Ninja / Visual Studio 2022 workflows.
+- CMake 4.2+ for the native Visual Studio 2026 generator.
+- C++23 compiler.
+- Ninja, Visual Studio 2026/v145, Visual Studio 2022/v143, GCC, Clang, or Apple Clang.
+- Vulkan loader/headers and shaderc for the Vulkan target.
+- EpochPlatformEngine for the interactive lab.
+- X11 development headers on Linux for the current Linux surface path.
+- MoltenVK or another Vulkan portability implementation on macOS.
 
-`vcpkg.json` pins the Vulkan and shaderc package baseline. GLFW is not used.
+The vcpkg manifest carries shaderc/Vulkan and enables `vulkan-loader[xlib]` on Linux. The build does not mutate the user's vcpkg checkout.
 
-## Windows build
-
-The PowerShell build script checks `VCPKG_ROOT`, then `C:\Users\iammi\source\repos\vcpkg`. It automatically uses a sibling `EpochPlatformEngine` checkout when present; otherwise CMake can fetch the pinned commit.
+## Windows
 
 ```powershell
-# Vulkan lab, core examples, and tests
-.\build.ps1 -Configuration Release -Generator Ninja
+# Full Vulkan lab + examples + tests
+.\build.bat -Configuration Release
 
-# Explicit supporting repository
-.\build.ps1 -Configuration Release `
-  -EpochPlatformPath ..\EpochPlatformEngine
+# Run Particle Studio
+.\run.bat -Configuration Release
 
-# Native Visual Studio 2026/v145 solution
+# Strict CPU-only validation
+.\build.bat -Configuration Debug -CpuOnly -WarningsAsErrors
+```
+
+PowerShell exposes additional generator/platform arguments:
+
+```powershell
 .\build.ps1 -Configuration Release -Generator VisualStudio2026
-
-# Visual Studio 2022/v143 fallback
-.\build.ps1 -Configuration Release -Generator VisualStudio2022
-
-# CPU-only strict validation
-.\build.ps1 -Configuration Debug -CpuOnly -WarningsAsErrors
-
-# Build and run the native lab
-.\run.ps1 -Configuration Release
+.\build.ps1 -Configuration Release -Generator Ninja
+.\build.ps1 -Configuration Release -EpochPlatformPath ..\EpochPlatformEngine
 ```
 
-Batch wrappers are included:
-
-```bat
-build.bat -Configuration Release
-run.bat -Configuration Release
-```
-
-## Linux and macOS build
+## Linux / macOS
 
 ```bash
 export VCPKG_ROOT="$HOME/vcpkg"
@@ -132,7 +189,7 @@ export VCPKG_ROOT="$HOME/vcpkg"
 ./run.sh Release
 ```
 
-CPU-only and sanitizer builds do not require Vulkan or EpochPlatformEngine:
+CPU-only validation does not require Vulkan or EpochPlatformEngine:
 
 ```bash
 ./build.sh Debug --cpu-only --warnings-as-errors
@@ -151,101 +208,34 @@ cmake --build --preset vulkan-release
 ctest --preset vulkan-release
 ```
 
-The Vulkan presets expect `VCPKG_ROOT`. `vs2026-vulkan` creates a Visual Studio 2026/v145 solution; `vs2022-vulkan` remains available for v143.
+## Determinism and validation
 
-## Controls
+The deterministic fountain stores authoritative motion/RNG/ID state in fixed-point/integer form. Floating-point scenes preserve deterministic worker-count behavior by using stable update order or disjoint parallel writes with stable reductions. Fast-math remains disabled.
 
-- `1` through `9`: select a scene
-- `Tab` / `Shift+Tab`: next / previous scene
-- `Space`: pause or resume
-- `.`: advance one fixed tick
-- `R`: reset from the current deterministic seed
-- `-` / `+`: halve / double time scale
-- `F1`: hide or show the control panel
-- Left and right mouse buttons: scene-specific paint, erase, attract, repel, or emit action
-- `Esc`: exit
-
-## Core library use
-
-```cpp
-#include <epochengine/particle/epoch_particle_engine.hpp>
-
-using namespace epochengine::particle;
-
-int main()
-{
-    Simulation simulation({
-        .fixed_step = std::chrono::nanoseconds{ 16'666'667 },
-        .maximum_catch_up_steps = 8,
-        .seed = 42,
-        .worker_count = TaskArena::recommended_worker_count()
-    });
-
-    simulation.resize({ 1280.0F, 720.0F });
-    simulation.step_once();
-
-    RenderFrame frame;
-    frame.begin(simulation.bounds());
-    simulation.render(frame);
-    frame.finalize();
-    return frame.items().empty() ? 1 : 0;
-}
-```
-
-CMake consumer:
-
-```cmake
-find_package(EpochParticleEngine CONFIG REQUIRED)
-
-target_link_libraries(MySimulation PRIVATE EpochParticleEngine::Core)
-# Link EpochParticleEngine::Vulkan only when the installed package contains it.
-```
-
-## Determinism contract
-
-The deterministic fountain stores authoritative position, velocity, lifetime, RNG state, and IDs in fixed-point/integer form. Given the same engine version, seed, dimensions, fixed tick count, and ordered inputs, its state hash is repeatable across supported platforms.
-
-Floating-point scenes are deterministic across worker counts because parallel phases write disjoint ranges and reductions occur in stable order. Their hashes are intended for replay within a defined compiler/CPU floating-point contract; they are not promised bit-identical across every architecture. Fast-math is deliberately disabled.
-
-Run the replay validator:
-
-```bash
-./out/build/ninja-cpu-release/EpochParticleReplay 180 42 8
-```
-
-## Epoch ecosystem integration
-
-- **EpochPlatformEngine:** owns process entry, native windows, event pumps, context routes, and owner-thread callbacks. The lab uses it directly.
-- **EpochGui:** optional. Enable with `-DEPOCH_PARTICLE_WITH_EPOCHGUI=ON -DEPOCHGUI_SOURCE_DIR=<path>`. This repository consumes its public layout API without modifying EpochGui.
-- **EpochAudioEngine:** consume `Simulation::events()` and map explosions, impacts, ignition, and emission to voices. Playback never feeds back into deterministic state.
-- **EpochMediaEngine:** capture or encode finalized `RenderFrame` output through a renderer/media adapter. Media timing and encoding remain outside simulation hashes.
-
-See `docs/epoch-integration.md` and `docs/architecture.md` for the ownership boundaries.
-
-## Validation
+Every default scene is exercised by the replay suite. v0.2.0 also tests Particle Studio document roundtripping and malformed-document rejection.
 
 ```bash
 ctest --test-dir out/build/ninja-cpu-debug --output-on-failure
+./out/build/ninja-cpu-release/EpochParticleReplay 180 42 8
 ./out/build/ninja-cpu-release/EpochParticleHeadless 600 42 4
-./out/build/ninja-cpu-release/EpochParticleReplay 180 42 4
 ```
 
-The suite covers fixed-point arithmetic, RNG replay, task partitioning and exception recovery, stable particle compaction, spatial indexing, material-grid replay, render ordering, every scene, reset replay, and serial/parallel hashes.
+CI covers GCC, Clang, Apple Clang, Visual Studio 2026, ASan/UBSan, shared-library installed-package consumption, and a complete Vulkan/vcpkg build.
 
 ## Repository layout
 
 ```text
-include/epochengine/particle/   Public C++23 core API
+include/epochengine/particle/   Public C++23 API
 include/.../vulkan/             Public native-surface Vulkan API
 src/core/                       Scheduler, storage, grids, hashing, command stream
-src/scenes/                     Nine reference simulations
+src/scenes/                     Fifteen default scenes including Particle Studio
 src/vulkan/                     Vulkan backend and OS-specific surface adapters
-app/                            EpochPlatformEngine lab and optional EpochGui layout bridge
+app/                            EpochPlatformEngine lab and optional EpochGui bridge
 examples/                       Headless sweep and replay validator
-benchmarks/                     CPU scene benchmark
-tests/                          Determinism and safety contracts
-docs/                           Architecture and integration notes
-scripts/                        Source and SDK packaging helpers
+benchmarks/                     Optional CPU benchmark
+tests/                          Determinism, safety, serialization contracts
+docs/                           Architecture, integration, release notes
+scripts/                        Build/package helpers
 ```
 
 ## License
