@@ -53,10 +53,13 @@ void main()
     mat2 rotation = mat2(cosine, sine, -sine, cosine);
     vec2 pixel = item.center + rotation * (local * item.half_extent);
 
+    // RenderFrame uses upper-left-origin framebuffer pixels with positive Y
+    // downward. A positive-height Vulkan viewport maps NDC -1 to the top edge,
+    // so Y uses the same conversion as X and must not be inverted here.
     vec2 safe_viewport = max(push_constants.viewport, vec2(1.0));
     vec2 normalized = vec2(
         pixel.x / safe_viewport.x * 2.0 - 1.0,
-        1.0 - pixel.y / safe_viewport.y * 2.0);
+        pixel.y / safe_viewport.y * 2.0 - 1.0);
 
     gl_Position = vec4(normalized, 0.0, 1.0);
     fragment_color = item.color;
@@ -66,6 +69,11 @@ void main()
     fragment_half_extent = item.half_extent;
 }
 )glsl";
+
+    static_assert(vertex_shader.find("pixel.y / safe_viewport.y * 2.0 - 1.0")
+        != std::string_view::npos);
+    static_assert(vertex_shader.find("1.0 - pixel.y / safe_viewport.y * 2.0")
+        == std::string_view::npos);
 
     inline constexpr std::string_view fragment_shader = R"glsl(
 #version 450
