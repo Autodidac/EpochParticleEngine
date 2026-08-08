@@ -7,6 +7,12 @@ on:
     paths:
       - '.source-import/v0.2.0-tar/**'
       - '.github/workflows/import-v0.2.0.yml'
+  pull_request:
+    branches:
+      - main
+    paths:
+      - '.source-import/v0.2.0-tar/**'
+      - '.github/workflows/import-v0.2.0.yml'
 
 permissions:
   contents: write
@@ -22,6 +28,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          ref: feat/font-scenes-v0.2.0
           fetch-depth: 0
 
       - name: Reconstruct and verify source
