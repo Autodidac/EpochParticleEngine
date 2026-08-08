@@ -48,6 +48,7 @@ The simulation's internal `TaskArena` may use background workers, but scene phas
 7. The optional UI appends layout-driven shapes and one command per visible glyph to the same stream.
 8. `RenderFrame::finalize` performs a stable layer sort.
 9. The Vulkan backend uploads the batch, issues one instanced draw, and rasterizes glyph bitmaps in the fragment shader.
+The catch-up limit bounds simulation work performed for one rendered frame; it never deletes accumulated fixed-step time. Backlog drains over subsequent frames, so equal elapsed time produces equal authoritative state regardless of frame chunking.
 
 ## Particle storage
 

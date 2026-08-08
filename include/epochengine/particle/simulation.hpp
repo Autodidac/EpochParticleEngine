@@ -75,6 +75,7 @@ namespace epochengine::particle
         TaskArena tasks_;
         Bounds bounds_{ 1280.0F, 720.0F };
         std::chrono::nanoseconds accumulator_{};
+        long double scaled_time_remainder_{};
         std::vector<SimulationEvent> events_;
         std::size_t active_scene_{};
         std::uint64_t tick_{};
