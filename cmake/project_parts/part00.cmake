@@ -79,6 +79,12 @@ function(epoch_particle_apply_warnings target)
     if(MSVC)
         target_compile_options(${target} PRIVATE
             /W4 /permissive- /Zc:__cplusplus /EHsc /utf-8 /fp:precise)
+        # The public DLL ABI intentionally exposes standard-library value
+        # types. C4251 diagnoses that design even though consumers and the DLL
+        # use the same supported MSVC runtime. Keep every other warning strict.
+        if(EPOCH_PARTICLE_BUILD_SHARED)
+            target_compile_options(${target} PRIVATE /wd4251)
+        endif()
         if(EPOCH_PARTICLE_WARNINGS_AS_ERRORS)
             target_compile_options(${target} PRIVATE /WX)
         endif()

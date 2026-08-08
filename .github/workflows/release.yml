@@ -48,8 +48,10 @@ jobs:
           set -euo pipefail
           header_version="$(sed -n 's/.*version_string = "\([^"]*\)".*/\1/p' include/epochengine/particle/version.hpp)"
           cmake_version="$(sed -n '/project(EpochParticleEngine/{n;s/.*VERSION \([^ ]*\).*/\1/p;}' CMakeLists.txt)"
+          manifest_version="$(python3 -c 'import json; print(json.load(open("vcpkg.json", encoding="utf-8"))["version-semver"])')"
           test "$RELEASE_VERSION" = "$header_version"
           test "$RELEASE_VERSION" = "$cmake_version"
+          test "$RELEASE_VERSION" = "$manifest_version"
 
       - name: Configure CPU validation build
         shell: bash
@@ -72,6 +74,10 @@ jobs:
       - name: Package source
         shell: bash
         run: ./scripts/package-source.sh "$RUNNER_TEMP/packages"
+      - name: Verify packaged checksum
+        shell: bash
+        run: |
+          (cd "$RUNNER_TEMP/packages" && sha256sum --check *.sha256)
 
       - uses: actions/upload-artifact@v4
         with:
@@ -144,5 +150,4 @@ jobs:
       - name: Delete trigger branch
         shell: bash
         run: |
-          git push origin --delete fix/windows-build-v0.1.1 || true
           git push origin --delete "$GITHUB_REF_NAME" || true

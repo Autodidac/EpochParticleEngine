@@ -83,7 +83,7 @@ jobs:
         run: ctest --test-dir out/ci-macos --output-on-failure
 
   windows-cpu:
-    name: Windows Server 2025 / Visual Studio 2026 CPU
+    name: Windows Server 2025 / Visual Studio 2026 CPU and shared SDK
     runs-on: windows-2025
     steps:
       - uses: actions/checkout@v4
@@ -92,6 +92,20 @@ jobs:
       - name: Build and test through the public Windows wrapper
         shell: powershell
         run: .\build.bat -Configuration Debug -CpuOnly -WarningsAsErrors
+      - name: Build and test shared library through the public Windows wrapper
+        shell: powershell
+        run: .\build.bat -Configuration Release -CpuOnly -Shared -WarningsAsErrors
+      - name: Install shared SDK and build external consumer
+        shell: powershell
+        run: |
+          $install = Join-Path $env:RUNNER_TEMP 'epoch-particle-sdk'
+          $state = Get-Content out/build/last-build.json | ConvertFrom-Json
+          cmake --install $state.buildDirectory --config Release --prefix $install
+          cmake -S tests/package_consumer -B out/ci-windows-package-consumer `
+            -A x64 "-DCMAKE_PREFIX_PATH=$install"
+          cmake --build out/ci-windows-package-consumer --config Release --parallel
+          $env:PATH = "$(Join-Path $install 'bin');$env:PATH"
+          & .\out\ci-windows-package-consumer\Release\EpochParticlePackageConsumer.exe
 
   sanitize:
     name: Clang ASan and UBSan

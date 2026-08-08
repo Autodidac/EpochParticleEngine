@@ -32,10 +32,10 @@ No requested work is silently discarded. This cache separates the completed v0.1
 - [x] CMake install/export package, pinned vcpkg manifest, presets, and PowerShell/batch/shell scripts.
 - [x] Static and shared library ABI/export validation plus an installed-package consumer smoke test.
 - [x] GCC and Clang warning-clean CPU builds.
-- [x] Deterministic serial/multi-thread replay tests across all nine scenes.
+- [x] Deterministic serial/multi-thread replay tests across all 15 scenes.
 - [x] AddressSanitizer and UndefinedBehaviorSanitizer configuration.
 - [x] CI for Linux, macOS, Windows, sanitizers, and Vulkan compilation.
-- [x] Tag-driven source, CPU SDK, and Windows Vulkan release packaging.
+- [x] Tag-driven source release packaging with portable SHA-256 validation.
 - [x] Architecture, scene-authoring, Epoch integration, changelog, and release documentation.
 
 ## Next-stage candidates

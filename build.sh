@@ -4,6 +4,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CONFIGURATION="Release"
 CPU_ONLY=0
+SHARED=0
 CLEAN=0
 SKIP_TESTS=0
 WARNINGS_AS_ERRORS=0
@@ -19,6 +20,7 @@ fi
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --cpu-only) CPU_ONLY=1 ;;
+        --shared) SHARED=1 ;;
         --clean) CLEAN=1 ;;
         --skip-tests) SKIP_TESTS=1 ;;
         --warnings-as-errors) WARNINGS_AS_ERRORS=1 ;;
@@ -47,6 +49,9 @@ if [[ $CPU_ONLY -eq 1 ]]; then
     BUILD_FLAVOR="cpu"
     VULKAN=OFF
 fi
+if [[ $SHARED -eq 1 ]]; then
+    BUILD_FLAVOR+="-shared"
+fi
 BUILD_DIR="$ROOT/out/build/ninja-${BUILD_FLAVOR}-${CONFIGURATION,,}"
 
 if [[ $CLEAN -eq 1 ]]; then
@@ -59,6 +64,7 @@ CMAKE_ARGS=(
     -G Ninja
     "-DCMAKE_BUILD_TYPE=$CONFIGURATION"
     "-DEPOCH_PARTICLE_BUILD_VULKAN=$VULKAN"
+    "-DEPOCH_PARTICLE_BUILD_SHARED=$([[ $SHARED -eq 1 ]] && echo ON || echo OFF)"
     -DEPOCH_PARTICLE_BUILD_EXAMPLES=ON
     "-DEPOCH_PARTICLE_BUILD_TESTS=$([[ $SKIP_TESTS -eq 1 ]] && echo OFF || echo ON)"
     "-DEPOCH_PARTICLE_WARNINGS_AS_ERRORS=$([[ $WARNINGS_AS_ERRORS -eq 1 ]] && echo ON || echo OFF)"

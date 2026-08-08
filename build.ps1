@@ -7,6 +7,7 @@ param(
     [string]$Generator = 'VisualStudio',
 
     [switch]$CpuOnly,
+    [switch]$Shared,
     [switch]$Clean,
     [switch]$SkipTests,
     [switch]$WarningsAsErrors,
@@ -78,6 +79,7 @@ $GeneratorInfo = Resolve-EpochGenerator $Generator $CMakeExecutable
 $GeneratorFlavor = $GeneratorInfo.Flavor
 $IsVisualStudio = $GeneratorInfo.IsVisualStudio
 $BuildFlavor = if ($CpuOnly) { 'cpu' } else { 'vulkan' }
+if ($Shared) { $BuildFlavor += '-shared' }
 $BuildDir = Join-Path $Root "out/build/$GeneratorFlavor-$BuildFlavor-$($Configuration.ToLowerInvariant())"
 
 if ($Clean -and (Test-Path $BuildDir)) {
@@ -89,6 +91,7 @@ $CMakeArgs = @(
     '-B', $BuildDir,
     '-G', $GeneratorInfo.CMakeGenerator,
     "-DEPOCH_PARTICLE_BUILD_VULKAN=$(ConvertTo-CMakeBool (-not $CpuOnly.IsPresent))",
+    "-DEPOCH_PARTICLE_BUILD_SHARED=$(ConvertTo-CMakeBool $Shared.IsPresent)",
     '-DEPOCH_PARTICLE_BUILD_EXAMPLES=ON',
     "-DEPOCH_PARTICLE_BUILD_TESTS=$(ConvertTo-CMakeBool (-not $SkipTests.IsPresent))",
     "-DEPOCH_PARTICLE_WARNINGS_AS_ERRORS=$(ConvertTo-CMakeBool $WarningsAsErrors.IsPresent)",
@@ -165,6 +168,7 @@ $BuildState = [ordered]@{
     generator = $GeneratorInfo.Name
     generatorFlavor = $GeneratorFlavor
     buildFlavor = $BuildFlavor
+    linkage = if ($Shared) { 'shared' } else { 'static' }
     buildDirectory = $BuildDir
     isVisualStudio = $IsVisualStudio
 }
