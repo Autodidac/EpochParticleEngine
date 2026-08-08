@@ -6,6 +6,13 @@
   "license": "MIT",
   "dependencies": [
     "shaderc",
-    "vulkan"
+    "vulkan",
+    {
+      "name": "vulkan-loader",
+      "features": [
+        "xlib"
+      ],
+      "platform": "linux"
+    }
   ]
 }
