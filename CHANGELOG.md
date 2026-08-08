@@ -2,6 +2,13 @@
 
 All notable changes are recorded here. The project follows semantic versioning.
 
+## 0.1.5 - 2026-08-08
+
+### Fixed
+
+- Fixed the Vulkan lab's GCC `-Wsubobject-linkage` failure by giving `LaunchOptions` and `ApplicationState` normal `epochengine::particle::demo` namespace linkage.
+- Preserved the v0.1.4 logical font-height and per-monitor DPI fixes while making the full Vulkan example warning-clean under the strict CI build.
+
 ## 0.1.4 - 2026-08-08
 
 ### Fixed
