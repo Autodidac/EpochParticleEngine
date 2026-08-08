@@ -41,31 +41,83 @@ jobs:
           test "${#parts[@]}" -eq 12
 
           clean="$RUNNER_TEMP/source.b64"
-          : > "$clean"
-          for part in "${parts[@]}"; do
+          prefix="$RUNNER_TEMP/source-prefix.b64"
+          tail="$RUNNER_TEMP/source-tail.b64"
+          : > "$prefix"
+
+          for index in "${!parts[@]}"; do
+            part="${parts[$index]}"
             raw_bytes=$(wc -c < "$part")
             invalid_bytes=$(LC_ALL=C tr -d 'A-Za-z0-9+/=\r\n' < "$part" | wc -c)
             printf '%s raw=%s invalid=%s\n' "$part" "$raw_bytes" "$invalid_bytes"
-            LC_ALL=C tr -cd 'A-Za-z0-9+/=' < "$part" >> "$clean"
+            if (( index + 1 < ${#parts[@]} )); then
+              LC_ALL=C tr -cd 'A-Za-z0-9+/=' < "$part" >> "$prefix"
+            else
+              LC_ALL=C tr -cd 'A-Za-z0-9+/=' < "$part" > "$tail"
+            fi
           done
 
-          clean_bytes=$(wc -c < "$clean")
-          printf 'clean total=%s modulo4=%s\n' "$clean_bytes" "$((clean_bytes % 4))"
-          python3 - "$clean" <<'PY'
+          python3 - "$prefix" "$tail" "$clean" <<'PY'
           import base64
           import binascii
+          import hashlib
           import pathlib
+          import string
           import sys
 
-          path = pathlib.Path(sys.argv[1])
-          payload = path.read_bytes()
-          print(f"python clean bytes={len(payload)} modulo4={len(payload) % 4}")
-          print(f"padding count={payload.count(b'=')} first padding={payload.find(b'=')}")
+          prefix_path = pathlib.Path(sys.argv[1])
+          tail_path = pathlib.Path(sys.argv[2])
+          output_path = pathlib.Path(sys.argv[3])
+          target = "260673a1a1e748c48453979b26424652de08567afe70b453a283c7341cf3ae22"
+
+          prefix = prefix_path.read_bytes()
+          tail = tail_path.read_bytes()
+          payload = prefix + tail
+          print(
+              f"prefix={len(prefix)} tail={len(tail)} total={len(payload)} "
+              f"modulo4={len(payload) % 4} padding={payload.count(b'=')}"
+          )
+
           try:
-              base64.b64decode(payload, validate=True)
-          except binascii.Error as error:
-              print(f"strict base64 error: {error}")
-              raise
+              decoded = base64.b64decode(payload, validate=True)
+          except binascii.Error:
+              decoded = None
+
+          if decoded is not None and hashlib.sha256(decoded).hexdigest() == target:
+              output_path.write_bytes(payload)
+              print("payload already matched expected SHA-256")
+              raise SystemExit(0)
+
+          if len(prefix) % 4 != 0:
+              raise RuntimeError("prefix is not aligned to a base64 quartet")
+          if len(payload) % 4 != 3:
+              raise RuntimeError("payload is not missing exactly one base64 character")
+
+          prefix_decoded = base64.b64decode(prefix, validate=True)
+          prefix_hash = hashlib.sha256(prefix_decoded)
+          alphabet = (string.ascii_uppercase + string.ascii_lowercase + string.digits + "+/").encode()
+
+          for position in range(len(tail) + 1):
+              before = tail[:position]
+              after = tail[position:]
+              for value in alphabet:
+                  candidate_tail = before + bytes((value,)) + after
+                  try:
+                      decoded_tail = base64.b64decode(candidate_tail, validate=True)
+                  except binascii.Error:
+                      continue
+                  digest = prefix_hash.copy()
+                  digest.update(decoded_tail)
+                  if digest.hexdigest() == target:
+                      repaired = prefix + candidate_tail
+                      output_path.write_bytes(repaired)
+                      print(
+                          f"repaired missing character at tail offset {position}: "
+                          f"{chr(value)!r}; total={len(repaired)}"
+                      )
+                      raise SystemExit(0)
+
+          raise RuntimeError("unable to repair staged source payload")
           PY
 
           base64 --decode "$clean" > "$RUNNER_TEMP/source.tar.xz"
