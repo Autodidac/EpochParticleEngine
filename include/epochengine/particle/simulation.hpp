@@ -10,6 +10,8 @@
 #include <cstdint>
 #include <memory>
 #include <span>
+#include <string>
+#include <string_view>
 #include <vector>
 
 namespace epochengine::particle
@@ -55,6 +57,9 @@ namespace epochengine::particle
         [[nodiscard]] SceneInfo scene_info(std::size_t index) const noexcept;
         [[nodiscard]] SceneInfo active_scene_info() const noexcept;
         [[nodiscard]] SceneStats active_scene_stats() const noexcept;
+
+        [[nodiscard]] std::string active_scene_document() const;
+        bool apply_active_scene_document(std::string_view document);
 
         [[nodiscard]] std::span<const SimulationEvent> events() const noexcept;
         void clear_events() noexcept;

@@ -11,6 +11,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <span>
+#include <string>
 #include <string_view>
 #include <vector>
 
@@ -91,5 +92,17 @@ namespace epochengine::particle
 
         [[nodiscard]] virtual SceneStats stats() const noexcept = 0;
         [[nodiscard]] virtual std::uint64_t state_hash() const noexcept = 0;
+
+        // Optional editor/document contract. Simulation scenes that do not
+        // expose editable persistent state keep the default no-op behavior.
+        [[nodiscard]] virtual std::string scene_document() const
+        {
+            return {};
+        }
+
+        virtual bool apply_scene_document(std::string_view)
+        {
+            return false;
+        }
     };
 }

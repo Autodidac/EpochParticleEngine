@@ -111,6 +111,91 @@
                 : PointerButton::middle;
         }
 
+        void save_scene_document() noexcept
+        {
+            if (!state_)
+                return;
+            try
+            {
+                const std::string document = state_->simulation.active_scene_document();
+                if (document.empty())
+                {
+                    std::cout << "Active scene has no editable document.\n";
+                    return;
+                }
+                if (document.size()
+                    > static_cast<std::size_t>(std::numeric_limits<std::streamsize>::max()))
+                {
+                    std::cerr << "Scene document is too large to save.\n";
+                    return;
+                }
+
+                std::ofstream output(
+                    "EpochParticleStudio.epscene",
+                    std::ios::binary | std::ios::trunc);
+                if (!output)
+                {
+                    std::cerr << "Unable to open EpochParticleStudio.epscene for writing.\n";
+                    return;
+                }
+                output.write(
+                    document.data(),
+                    static_cast<std::streamsize>(document.size()));
+                if (!output)
+                {
+                    std::cerr << "Failed while writing EpochParticleStudio.epscene.\n";
+                    return;
+                }
+                std::cout << "Saved EpochParticleStudio.epscene\n";
+            }
+            catch (const std::exception& exception)
+            {
+                std::cerr << "Scene save failed: " << exception.what() << '\n';
+            }
+            catch (...)
+            {
+                std::cerr << "Scene save failed with an unknown error.\n";
+            }
+        }
+
+        void load_scene_document() noexcept
+        {
+            if (!state_)
+                return;
+            try
+            {
+                std::ifstream input(
+                    "EpochParticleStudio.epscene",
+                    std::ios::binary);
+                if (!input)
+                {
+                    std::cerr << "EpochParticleStudio.epscene was not found.\n";
+                    return;
+                }
+                std::ostringstream buffer;
+                buffer << input.rdbuf();
+                if (!input.good() && !input.eof())
+                {
+                    std::cerr << "Failed while reading EpochParticleStudio.epscene.\n";
+                    return;
+                }
+                if (!state_->simulation.apply_active_scene_document(buffer.str()))
+                {
+                    std::cerr << "Active scene rejected EpochParticleStudio.epscene.\n";
+                    return;
+                }
+                std::cout << "Loaded EpochParticleStudio.epscene\n";
+            }
+            catch (const std::exception& exception)
+            {
+                std::cerr << "Scene load failed: " << exception.what() << '\n';
+            }
+            catch (...)
+            {
+                std::cerr << "Scene load failed with an unknown error.\n";
+            }
+        }
+
         void handle_key(LogicalKey key, bool pressed, bool repeated) noexcept
         {
             if (!state_)
@@ -160,6 +245,14 @@
             case LogicalKey::reset:
                 if (!repeated)
                     state_->simulation.reset();
+                break;
+            case LogicalKey::save:
+                if (!repeated && state_->control_down)
+                    save_scene_document();
+                break;
+            case LogicalKey::load:
+                if (!repeated && state_->control_down)
+                    load_scene_document();
                 break;
             case LogicalKey::step:
                 if (!repeated)
