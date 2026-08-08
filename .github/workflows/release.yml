@@ -27,14 +27,20 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          target="$GITHUB_SHA"
           if [[ "$GITHUB_REF" == refs/tags/* ]]; then
             tag="$GITHUB_REF_NAME"
           else
             tag="${GITHUB_REF_NAME#release/}"
+            if [[ -f .release-trigger ]]; then
+              target="$(git rev-parse "$GITHUB_SHA^")"
+              git checkout --detach "$target"
+            fi
           fi
           [[ "$tag" == v* ]]
           echo "RELEASE_TAG=$tag" >> "$GITHUB_ENV"
           echo "RELEASE_VERSION=${tag#v}" >> "$GITHUB_ENV"
+          echo "RELEASE_TARGET_SHA=$target" >> "$GITHUB_ENV"
 
       - name: Verify version
         shell: bash
@@ -79,17 +85,24 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Resolve release tag
         shell: bash
         run: |
           set -euo pipefail
+          target="$GITHUB_SHA"
           if [[ "$GITHUB_REF" == refs/tags/* ]]; then
             tag="$GITHUB_REF_NAME"
           else
             tag="${GITHUB_REF_NAME#release/}"
+            if [[ -f .release-trigger ]]; then
+              target="$(git rev-parse "$GITHUB_SHA^")"
+            fi
           fi
           echo "RELEASE_TAG=$tag" >> "$GITHUB_ENV"
+          echo "RELEASE_TARGET_SHA=$target" >> "$GITHUB_ENV"
 
       - uses: actions/download-artifact@v4
         with:
@@ -110,13 +123,13 @@ jobs:
           elif [[ -f "$notes" ]]; then
             gh release create "$RELEASE_TAG" artifacts/* \
               --repo "$GITHUB_REPOSITORY" \
-              --target "$GITHUB_SHA" \
+              --target "$RELEASE_TARGET_SHA" \
               --title "EpochParticleEngine $RELEASE_TAG" \
               --notes-file "$notes"
           else
             gh release create "$RELEASE_TAG" artifacts/* \
               --repo "$GITHUB_REPOSITORY" \
-              --target "$GITHUB_SHA" \
+              --target "$RELEASE_TARGET_SHA" \
               --title "EpochParticleEngine $RELEASE_TAG" \
               --generate-notes
           fi
