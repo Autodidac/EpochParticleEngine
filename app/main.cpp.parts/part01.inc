@@ -50,6 +50,8 @@
             panel,
             shift,
             control,
+            save,
+            load,
             scene_1,
             scene_2,
             scene_3,
@@ -87,6 +89,10 @@
             case U' ': return LogicalKey::space;
             case U'r':
             case U'R': return LogicalKey::reset;
+            case U's':
+            case U'S': return LogicalKey::save;
+            case U'l':
+            case U'L': return LogicalKey::load;
             case U'.': return LogicalKey::step;
             case U'-': return LogicalKey::slower;
             case U'=':
@@ -104,6 +110,8 @@
                 case 0x09: return LogicalKey::tab;
                 case 0x20: return LogicalKey::space;
                 case 0x52: return LogicalKey::reset;
+                case 0x53: return LogicalKey::save;
+                case 0x4C: return LogicalKey::load;
                 case 0xBE: return LogicalKey::step;
                 case 0xBD:
                 case 0x6D: return LogicalKey::slower;
@@ -131,6 +139,10 @@
                 case 0x20: return LogicalKey::space;
                 case 0x72:
                 case 0x52: return LogicalKey::reset;
+                case 0x73:
+                case 0x53: return LogicalKey::save;
+                case 0x6C:
+                case 0x4C: return LogicalKey::load;
                 case 0x2E: return LogicalKey::step;
                 case 0x2D: return LogicalKey::slower;
                 case 0x3D:
