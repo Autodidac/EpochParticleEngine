@@ -1,6 +1,7 @@
 #pragma once
 
 #include <epochengine/particle/simulation.hpp>
+#include <epochengine/particle/text.hpp>
 
 #include <cstddef>
 #include <optional>
@@ -17,8 +18,12 @@ namespace epochengine::particle::demo
     {
         Bounds framebuffer{};
         float panel_width{ 344.0F };
+        float dpi_scale{ 1.0F };
+        float geometry_scale{ 1.0F };
         bool panel_visible{ true };
 
+        [[nodiscard]] float scaled(float logical_pixels) const noexcept;
+        [[nodiscard]] TextSize text_size(float logical_height) const noexcept;
         [[nodiscard]] float scene_width() const noexcept;
         [[nodiscard]] Bounds scene_bounds() const noexcept;
         [[nodiscard]] bool point_in_scene(Vec2 point) const noexcept;
@@ -30,6 +35,7 @@ namespace epochengine::particle::demo
         explicit UiOverlay(UiLayout layout = {});
 
         void resize(Bounds framebuffer) noexcept;
+        void set_dpi_scale(float dpi_scale) noexcept;
         void toggle_panel() noexcept;
         void set_panel_visible(bool visible) noexcept;
 
@@ -47,8 +53,12 @@ namespace epochengine::particle::demo
             std::string_view device_name) const;
 
     private:
-        [[nodiscard]] UiRect scene_row_rect(std::size_t index, std::size_t count) const noexcept;
-        void render_scene_list(RenderFrame& frame, const Simulation& simulation) const;
+        [[nodiscard]] UiRect scene_row_rect(
+            std::size_t index,
+            std::size_t count) const noexcept;
+        void render_scene_list(
+            RenderFrame& frame,
+            const Simulation& simulation) const;
         void render_stats(
             RenderFrame& frame,
             const Simulation& simulation,
