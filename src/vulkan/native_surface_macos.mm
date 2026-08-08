@@ -39,6 +39,17 @@ namespace epochengine::particle::vulkan::detail
             });
         }
 
+        const auto create_metal_surface =
+            reinterpret_cast<PFN_vkCreateMetalSurfaceEXT>(
+                vkGetInstanceProcAddr(instance, "vkCreateMetalSurfaceEXT"));
+        if (create_metal_surface == nullptr)
+        {
+            return std::unexpected(RendererError{
+                RendererErrorCode::initialization_failed,
+                "Vulkan loader did not expose vkCreateMetalSurfaceEXT"
+            });
+        }
+
         @autoreleasepool
         {
             NSWindow* window = static_cast<NSWindow*>(surface.window);
@@ -52,7 +63,8 @@ namespace epochengine::particle::vulkan::detail
             }
 
             [view setWantsLayer:YES];
-            CAMetalLayer* layer = [view layer] != nil && [[view layer] isKindOfClass:[CAMetalLayer class]]
+            CAMetalLayer* layer = [view layer] != nil
+                    && [[view layer] isKindOfClass:[CAMetalLayer class]]
                 ? static_cast<CAMetalLayer*>([view layer])
                 : [CAMetalLayer layer];
             [view setLayer:layer];
@@ -65,7 +77,7 @@ namespace epochengine::particle::vulkan::detail
                 .pLayer = layer
             };
             VkSurfaceKHR result_surface = VK_NULL_HANDLE;
-            const VkResult result = vkCreateMetalSurfaceEXT(
+            const VkResult result = create_metal_surface(
                 instance,
                 &create_info,
                 nullptr,
@@ -74,8 +86,8 @@ namespace epochengine::particle::vulkan::detail
             {
                 return std::unexpected(RendererError{
                     RendererErrorCode::initialization_failed,
-                    "vkCreateMetalSurfaceEXT failed with VkResult " +
-                        std::to_string(static_cast<std::int32_t>(result))
+                    "vkCreateMetalSurfaceEXT failed with VkResult "
+                        + std::to_string(static_cast<std::int32_t>(result))
                 });
             }
             return result_surface;
