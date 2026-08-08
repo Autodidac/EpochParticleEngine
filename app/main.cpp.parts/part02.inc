@@ -50,7 +50,9 @@
         {
             return {
                 .runtime = {
-                    .dedicated_driver_threads = true,
+                    // Keep window events and Vulkan lifetime on the application thread;
+                    // reusable driver workers can stall while joining after context shutdown.
+                    .dedicated_driver_threads = false,
                     .auto_register_builtin_drivers = true,
                     .idle_wait = std::chrono::milliseconds{ 1 }
                 },
@@ -107,7 +109,7 @@
             auto context = runtime.create_context({
                 .driver = platform::DriverKind::automatic,
                 .type = platform::ContextType::vulkan,
-                .thread_policy = platform::ThreadPolicy::automatic,
+                .thread_policy = platform::ThreadPolicy::caller_thread,
                 .window = {
                     .title = "EpochParticleEngine - Particle Studio",
                     .width = options_.width,
@@ -135,9 +137,17 @@
                 && runtime.active_context_count() != 0;
         }
 
-        void on_stop(platform::Runtime&) noexcept override
+        void on_stop(platform::Runtime& runtime) noexcept override
         {
             runtime_ = nullptr;
+            if (state_)
+            {
+                // A fatal frame can stop the application before the context callback runs.
+                // Destroy it synchronously while the Runtime and callbacks are still valid.
+                const platform::Status destroyed = runtime.destroy_context(context_);
+                if (!destroyed)
+                    shutdown_context();
+            }
         }
 
     private:

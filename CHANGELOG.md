@@ -2,6 +2,21 @@
 
 All notable changes are recorded here. The project follows semantic versioning.
 
+## 0.2.2 - 2026-08-08
+
+### Fixed
+
+- Moved the interactive Vulkan context to the application thread so platform-driver worker shutdown cannot stall after the window closes.
+- Added explicit on-stop context destruction for fatal/early-stop paths while the runtime and callbacks are still valid.
+- Removed the redundant device-idle wait from the application callback; renderer destruction now owns the single Vulkan teardown wait.
+- Disabled MSBuild node reuse in the Windows wrapper so completed builds do not retain handles below `out/build`.
+
+### Validation
+
+- Reproduced the original post-`WM_CLOSE` hang and confirmed shutdown callbacks completed before the platform worker stalled.
+- Passed five consecutive real close cycles in 0.47-0.87 seconds with immediate exclusive access to the executable after every exit.
+- Rebuilt the strict Vulkan Release target and preserved the full deterministic test suite.
+
 ## 0.2.1 - 2026-08-08
 
 ### Fixed
