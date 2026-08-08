@@ -64,10 +64,16 @@ set(EPOCH_PARTICLE_CORE_SOURCES
     src/scenes/deterministic_fountain.cpp
     src/scenes/fire_smoke.cpp
     src/scenes/fireworks.cpp
+    src/scenes/flow_field.cpp
     src/scenes/galaxy.cpp
     src/scenes/hybrid_sand.cpp
     src/scenes/particle_life.cpp
-    src/scenes/sph_fluid.cpp)
+    src/scenes/particle_studio.cpp
+    src/scenes/physarum.cpp
+    src/scenes/reaction_diffusion.cpp
+    src/scenes/sph_fluid.cpp
+    src/scenes/spring_cloth.cpp
+    src/scenes/weather.cpp)
 
 function(epoch_particle_apply_warnings target)
     if(MSVC)
