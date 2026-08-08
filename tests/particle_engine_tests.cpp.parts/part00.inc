@@ -101,11 +101,30 @@ namespace
         std::uint64_t updates_{};
     };
 
+    [[nodiscard]] std::string test_ticks_environment()
+    {
+#if defined(_WIN32)
+        char* buffer = nullptr;
+        std::size_t length = 0;
+        if (_dupenv_s(&buffer, &length, "EPOCH_PARTICLE_TEST_TICKS") != 0
+            || buffer == nullptr)
+        {
+            return {};
+        }
+        std::string result{ buffer };
+        std::free(buffer);
+        return result;
+#else
+        const char* value = std::getenv("EPOCH_PARTICLE_TEST_TICKS");
+        return value != nullptr ? std::string{ value } : std::string{};
+#endif
+    }
+
     [[nodiscard]] int configured_scene_ticks() noexcept
     {
         constexpr int default_ticks = 180;
-        const char* value = std::getenv("EPOCH_PARTICLE_TEST_TICKS");
-        if (value == nullptr)
+        const std::string value = test_ticks_environment();
+        if (value.empty())
             return default_ticks;
 
         int parsed = default_ticks;
