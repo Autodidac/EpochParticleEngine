@@ -171,6 +171,9 @@ The vcpkg manifest carries shaderc/Vulkan and enables `vulkan-loader[xlib]` on L
 
 # Strict CPU-only validation
 .\build.bat -Configuration Debug -CpuOnly -WarningsAsErrors
+
+# Strict CPU-only shared-library validation
+.\build.bat -Configuration Release -CpuOnly -Shared -WarningsAsErrors
 ```
 
 PowerShell exposes additional generator/platform arguments:
@@ -194,6 +197,7 @@ CPU-only validation does not require Vulkan or EpochPlatformEngine:
 ```bash
 ./build.sh Debug --cpu-only --warnings-as-errors
 ./build.sh Debug --cpu-only --sanitize
+./build.sh Release --cpu-only --shared --warnings-as-errors
 ```
 
 ## CMake presets
@@ -220,7 +224,9 @@ ctest --test-dir out/build/ninja-cpu-debug --output-on-failure
 ./out/build/ninja-cpu-release/EpochParticleHeadless 600 42 4
 ```
 
-CI covers GCC, Clang, Apple Clang, Visual Studio 2026, ASan/UBSan, shared-library installed-package consumption, and a complete Vulkan/vcpkg build.
+CI covers GCC, Clang, Apple Clang, Visual Studio 2026, ASan/UBSan, Linux and Windows shared-library installed-package consumption, and a complete Vulkan/vcpkg build.
+
+Tagged releases publish a source archive and a portable SHA-256 checksum that is verified before upload.
 
 ## Repository layout
 

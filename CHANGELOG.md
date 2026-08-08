@@ -2,6 +2,24 @@
 
 All notable changes are recorded here. The project follows semantic versioning.
 
+## 0.2.1 - 2026-08-08
+
+### Fixed
+
+- Fixed strict MSVC shared-library builds failing on the intentional public standard-library value-type ABI.
+- Made source-package checksum files portable and verified them before release upload.
+- Removed an obsolete hard-coded branch deletion from the generic release cleanup job.
+
+### Build and CI
+
+- Added `-Shared` and `--shared` to the Windows and Unix build wrappers.
+- Added Windows shared-library tests plus an installed `find_package` consumer to CI.
+- Required release tags to match the CMake, public-header, and vcpkg manifest versions.
+
+### Validation
+
+- Passed Debug/static and Release/shared MSVC builds, all 11 test groups, installed-package consumption, replay/headless sweeps, the benchmark, the C++23 module facade, and MSVC static analysis.
+
 ## 0.2.0 - 2026-08-08
 
 ### Particle Studio

@@ -5,6 +5,7 @@ OUTPUT_DIR="${1:-$ROOT/out/packages}"
 VERSION="$(sed -n 's/.*version_string = "\([^"]*\)".*/\1/p' "$ROOT/include/epochengine/particle/version.hpp")"
 [[ -n "$VERSION" ]] || { echo "Could not read version" >&2; exit 1; }
 mkdir -p "$OUTPUT_DIR"
+OUTPUT_DIR="$(cd "$OUTPUT_DIR" && pwd)"
 ARCHIVE="$OUTPUT_DIR/EpochParticleEngine-v${VERSION}-source.zip"
 STAGING="$(mktemp -d)"
 trap 'rm -rf "$STAGING"' EXIT
@@ -24,6 +25,9 @@ rm -f "$ARCHIVE"
     cd "$STAGING"
     zip -qr "$ARCHIVE" "EpochParticleEngine-v${VERSION}"
 )
-sha256sum "$ARCHIVE" > "$ARCHIVE.sha256"
+(
+    cd "$OUTPUT_DIR"
+    sha256sum "$(basename "$ARCHIVE")" > "$(basename "$ARCHIVE").sha256"
+)
 echo "$ARCHIVE"
 echo "$ARCHIVE.sha256"
