@@ -1,41 +1,45 @@
-        struct ApplicationState final
-        {
-            explicit ApplicationState(const LaunchOptions& options)
-                : simulation({
-                    .fixed_step = std::chrono::nanoseconds{ 16'666'667 },
-                    .maximum_catch_up_steps = 8,
-                    .seed = options.seed,
-                    .worker_count = options.workers
-                })
-                , frame(524'288)
-            {
-            }
+    }
 
-            Simulation simulation;
-            RenderFrame frame;
-            UiOverlay ui;
-            std::unique_ptr<vulkan::Renderer> renderer;
-            platform::ContextId context{};
-            platform::DriverKind driver{ platform::DriverKind::automatic };
-            Vec2 cursor{};
-            bool primary_down{};
-            bool secondary_down{};
-            bool control_down{};
-            bool shift_down{};
-            double smoothed_frame_seconds{ 1.0 / 60.0 };
-            std::chrono::steady_clock::time_point title_update{ std::chrono::steady_clock::now() };
-#if defined(__APPLE__)
-            void* cocoa_input_token{};
-#endif
-        };
-
-        [[nodiscard]] Bounds fallback_bounds(const platform::ContextSnapshot& context) noexcept
+    struct ApplicationState final
+    {
+        explicit ApplicationState(const LaunchOptions& options)
+            : simulation({
+                .fixed_step = std::chrono::nanoseconds{ 16'666'667 },
+                .maximum_catch_up_steps = 8,
+                .seed = options.seed,
+                .worker_count = options.workers
+            })
+            , frame(524'288)
         {
-            return {
-                static_cast<float>(std::max(context.width, 1)),
-                static_cast<float>(std::max(context.height, 1))
-            };
         }
+
+        Simulation simulation;
+        RenderFrame frame;
+        UiOverlay ui;
+        std::unique_ptr<vulkan::Renderer> renderer;
+        platform::ContextId context{};
+        platform::DriverKind driver{ platform::DriverKind::automatic };
+        Vec2 cursor{};
+        bool primary_down{};
+        bool secondary_down{};
+        bool control_down{};
+        bool shift_down{};
+        double smoothed_frame_seconds{ 1.0 / 60.0 };
+        std::chrono::steady_clock::time_point title_update{
+            std::chrono::steady_clock::now()
+        };
+#if defined(__APPLE__)
+        void* cocoa_input_token{};
+#endif
+    };
+
+    [[nodiscard]] Bounds fallback_bounds(
+        const platform::ContextSnapshot& context) noexcept
+    {
+        return {
+            static_cast<float>(std::max(context.width, 1)),
+            static_cast<float>(std::max(context.height, 1))
+        };
     }
 
     class ParticleLabApplication final : public platform::IApplication
@@ -84,7 +88,9 @@
                 {
                     return initialize_context(context);
                 },
-                .frame = [this](const platform::ContextSnapshot& context, std::chrono::nanoseconds delta)
+                .frame = [this](
+                    const platform::ContextSnapshot& context,
+                    std::chrono::nanoseconds delta)
                 {
                     return render_context(context, delta);
                 },
@@ -125,8 +131,8 @@
             platform::Runtime& runtime,
             std::chrono::nanoseconds) override
         {
-            return !fatal_.load(std::memory_order_acquire) &&
-                runtime.active_context_count() != 0;
+            return !fatal_.load(std::memory_order_acquire)
+                && runtime.active_context_count() != 0;
         }
 
         void on_stop(platform::Runtime&) noexcept override
@@ -138,7 +144,8 @@
         [[nodiscard]] platform::Status initialize_context(
             const platform::ContextSnapshot& context)
         {
-            const vulkan::NativeSurface native_surface = make_native_surface(context.native);
+            const vulkan::NativeSurface native_surface =
+                make_native_surface(context.native);
             if (!native_surface.valid())
             {
                 return platform_failure(
