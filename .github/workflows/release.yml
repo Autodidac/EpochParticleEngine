@@ -143,4 +143,6 @@ jobs:
       - uses: actions/checkout@v4
       - name: Delete trigger branch
         shell: bash
-        run: git push origin --delete "$GITHUB_REF_NAME"
+        run: |
+          git push origin --delete fix/windows-build-v0.1.1 || true
+          git push origin --delete "$GITHUB_REF_NAME" || true
