@@ -4,54 +4,79 @@ param(
     [string]$Configuration = 'Release',
 
     [ValidateSet('Ninja', 'VisualStudio', 'VisualStudio2026', 'VisualStudio2022')]
-    [string]$Generator = 'Ninja',
+    [string]$Generator = 'VisualStudio',
 
     [switch]$CpuOnly,
     [switch]$Clean,
     [switch]$SkipTests,
     [switch]$WarningsAsErrors,
     [switch]$Sanitize,
+    [string]$VcpkgRoot = '',
+    [string]$VcpkgTriplet = 'x64-windows-static-md',
     [string]$EpochGuiPath = '',
     [string]$EpochPlatformPath = ''
 )
 
 $ErrorActionPreference = 'Stop'
+Set-StrictMode -Version 3.0
 
 function ConvertTo-CMakeBool([bool]$Value) {
     if ($Value) { return 'ON' }
     return 'OFF'
 }
 
-function Resolve-Generator([string]$Requested, [string]$CMakeExecutable) {
-    if ($Requested -eq 'Ninja') { return 'Ninja' }
+function Resolve-VcpkgRoot {
+    param([string]$ExplicitRoot, [string]$ProjectRoot)
 
-    $HelpText = (& $CMakeExecutable --help 2>&1 | Out-String)
-    $HasVisualStudio2026 = $HelpText.Contains('Visual Studio 18 2026')
-    $HasVisualStudio2022 = $HelpText.Contains('Visual Studio 17 2022')
+    $Candidates = @()
+    if ($ExplicitRoot) { $Candidates += $ExplicitRoot }
+    if ($env:VCPKG_ROOT) { $Candidates += $env:VCPKG_ROOT }
+    if ($env:USERPROFILE) {
+        $Candidates += (Join-Path $env:USERPROFILE 'source/repos/vcpkg')
+        $Candidates += (Join-Path $env:USERPROFILE 'vcpkg')
+    }
+    $Candidates += (Join-Path $ProjectRoot 'external/vcpkg')
 
-    if ($Requested -eq 'VisualStudio') {
-        if ($HasVisualStudio2026) { return 'VisualStudio2026' }
-        if ($HasVisualStudio2022) { return 'VisualStudio2022' }
-        throw 'This CMake installation exposes no supported Visual Studio generator.'
+    foreach ($Candidate in $Candidates | Select-Object -Unique) {
+        if (-not $Candidate) { continue }
+        $Toolchain = Join-Path $Candidate 'scripts/buildsystems/vcpkg.cmake'
+        if (Test-Path $Toolchain) {
+            return (Resolve-Path $Candidate).Path
+        }
     }
-    if ($Requested -eq 'VisualStudio2026' -and -not $HasVisualStudio2026) {
-        throw 'Visual Studio 2026 generation requires CMake 4.2 or newer with the "Visual Studio 18 2026" generator.'
+    return $null
+}
+
+function Initialize-Vcpkg {
+    param([string]$Root)
+
+    $Bootstrap = Join-Path $Root 'bootstrap-vcpkg.bat'
+    $Executable = Join-Path $Root 'vcpkg.exe'
+    if (-not (Test-Path $Executable)) {
+        if (-not (Test-Path $Bootstrap)) {
+            throw "vcpkg exists at '$Root', but bootstrap-vcpkg.bat is missing."
+        }
+        Write-Host 'Bootstrapping vcpkg...'
+        & $Bootstrap -disableMetrics
+        if ($LASTEXITCODE -ne 0) {
+            throw "vcpkg bootstrap failed with exit code $LASTEXITCODE."
+        }
     }
-    if ($Requested -eq 'VisualStudio2022' -and -not $HasVisualStudio2022) {
-        throw 'This CMake installation does not expose the "Visual Studio 17 2022" generator.'
-    }
-    return $Requested
+
+    # This project has no dependency version constraints, so the manifest uses
+    # the selected vcpkg checkout's current ports. Do not mutate or fetch the
+    # user's repository merely to configure a build.
+    $env:VCPKG_ROOT = $Root
 }
 
 $Root = Split-Path -Parent $MyInvocation.MyCommand.Path
-$CMakeExecutable = (Get-Command cmake -ErrorAction Stop).Source
-$ResolvedGenerator = Resolve-Generator $Generator $CMakeExecutable
-$IsVisualStudio = $ResolvedGenerator -ne 'Ninja'
-$GeneratorFlavor = switch ($ResolvedGenerator) {
-    'VisualStudio2026' { 'vs2026' }
-    'VisualStudio2022' { 'vs2022' }
-    default { 'ninja' }
-}
+. (Join-Path $Root 'scripts/windows-tools.ps1')
+
+$CMakeExecutable = (Get-Command cmake.exe -ErrorAction Stop).Source
+$CTestCommand = Get-Command ctest.exe -ErrorAction Stop
+$GeneratorInfo = Resolve-EpochGenerator $Generator $CMakeExecutable
+$GeneratorFlavor = $GeneratorInfo.Flavor
+$IsVisualStudio = $GeneratorInfo.IsVisualStudio
 $BuildFlavor = if ($CpuOnly) { 'cpu' } else { 'vulkan' }
 $BuildDir = Join-Path $Root "out/build/$GeneratorFlavor-$BuildFlavor-$($Configuration.ToLowerInvariant())"
 
@@ -62,6 +87,7 @@ if ($Clean -and (Test-Path $BuildDir)) {
 $CMakeArgs = @(
     '-S', $Root,
     '-B', $BuildDir,
+    '-G', $GeneratorInfo.CMakeGenerator,
     "-DEPOCH_PARTICLE_BUILD_VULKAN=$(ConvertTo-CMakeBool (-not $CpuOnly.IsPresent))",
     '-DEPOCH_PARTICLE_BUILD_EXAMPLES=ON',
     "-DEPOCH_PARTICLE_BUILD_TESTS=$(ConvertTo-CMakeBool (-not $SkipTests.IsPresent))",
@@ -69,36 +95,27 @@ $CMakeArgs = @(
     "-DEPOCH_PARTICLE_ENABLE_SANITIZERS=$(ConvertTo-CMakeBool $Sanitize.IsPresent)"
 )
 
-switch ($ResolvedGenerator) {
-    'VisualStudio2026' {
-        $CMakeArgs += @('-G', 'Visual Studio 18 2026', '-A', 'x64')
-    }
-    'VisualStudio2022' {
-        $CMakeArgs += @('-G', 'Visual Studio 17 2022', '-A', 'x64')
-    }
-    default {
-        $CMakeArgs += @('-G', 'Ninja', "-DCMAKE_BUILD_TYPE=$Configuration")
+if ($IsVisualStudio) {
+    $CMakeArgs += @('-A', 'x64')
+} else {
+    $CMakeArgs += "-DCMAKE_BUILD_TYPE=$Configuration"
+    if ($GeneratorInfo.NinjaPath) {
+        $CMakeArgs += "-DCMAKE_MAKE_PROGRAM=$($GeneratorInfo.NinjaPath)"
     }
 }
 
 if (-not $CpuOnly) {
-    $Candidates = @()
-    if ($env:VCPKG_ROOT) { $Candidates += $env:VCPKG_ROOT }
-    $Candidates += @(
-        'C:\Users\iammi\source\repos\vcpkg',
-        (Join-Path $Root 'external/vcpkg')
-    )
-
-    $VcpkgRoot = $Candidates |
-        Where-Object { $_ -and (Test-Path (Join-Path $_ 'scripts/buildsystems/vcpkg.cmake')) } |
-        Select-Object -First 1
-
-    if ($VcpkgRoot) {
-        $Toolchain = Join-Path $VcpkgRoot 'scripts/buildsystems/vcpkg.cmake'
+    $ResolvedVcpkgRoot = Resolve-VcpkgRoot $VcpkgRoot $Root
+    if ($ResolvedVcpkgRoot) {
+        Initialize-Vcpkg $ResolvedVcpkgRoot
+        $Toolchain = Join-Path $ResolvedVcpkgRoot 'scripts/buildsystems/vcpkg.cmake'
         $CMakeArgs += "-DCMAKE_TOOLCHAIN_FILE=$Toolchain"
-        Write-Host "Using vcpkg: $VcpkgRoot"
+        if ($VcpkgTriplet) {
+            $CMakeArgs += "-DVCPKG_TARGET_TRIPLET=$VcpkgTriplet"
+        }
+        Write-Host "Using vcpkg: $ResolvedVcpkgRoot"
     } else {
-        Write-Warning 'vcpkg was not found. CMake will search system Vulkan and shaderc packages.'
+        Write-Warning 'vcpkg was not found. Set VCPKG_ROOT or pass -VcpkgRoot. CMake will search system Vulkan and shaderc packages.'
     }
 }
 
@@ -125,7 +142,7 @@ if (-not $CpuOnly) {
     }
 }
 
-Write-Host "Configuring $BuildFlavor $Configuration with $ResolvedGenerator in $BuildDir"
+Write-Host "Configuring $BuildFlavor $Configuration with $($GeneratorInfo.Name) in $BuildDir"
 & $CMakeExecutable @CMakeArgs
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
@@ -137,8 +154,20 @@ if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 if (-not $SkipTests) {
     $CTestArgs = @('--test-dir', $BuildDir, '--output-on-failure')
     if ($IsVisualStudio) { $CTestArgs += @('-C', $Configuration) }
-    & ctest @CTestArgs
+    & $CTestCommand.Source @CTestArgs
     if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 }
+
+$BuildStateDirectory = Join-Path $Root 'out/build'
+New-Item -ItemType Directory -Force -Path $BuildStateDirectory | Out-Null
+$BuildState = [ordered]@{
+    configuration = $Configuration
+    generator = $GeneratorInfo.Name
+    generatorFlavor = $GeneratorFlavor
+    buildFlavor = $BuildFlavor
+    buildDirectory = $BuildDir
+    isVisualStudio = $IsVisualStudio
+}
+$BuildState | ConvertTo-Json | Set-Content (Join-Path $BuildStateDirectory 'last-build.json') -Encoding UTF8
 
 Write-Host "Build complete: $BuildDir"
