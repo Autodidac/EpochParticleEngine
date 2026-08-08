@@ -13,6 +13,7 @@
 #include "scenes.hpp"
 #include "simulation.hpp"
 #include "task_arena.hpp"
+#include "text.hpp"
 #include "types.hpp"
 #include "uniform_grid.hpp"
 #include "version.hpp"
