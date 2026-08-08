@@ -84,23 +84,14 @@ jobs:
 
   windows-cpu:
     name: Windows Server 2025 / Visual Studio 2026 CPU
-    runs-on: windows-2025-vs2026
+    runs-on: windows-2025
     steps:
       - uses: actions/checkout@v4
       - name: Tool versions
         run: cmake --version
-      - name: Configure
-        run: >-
-          cmake -S . -B out/ci-windows
-          -G "Visual Studio 18 2026" -A x64
-          -DEPOCH_PARTICLE_BUILD_VULKAN=OFF
-          -DEPOCH_PARTICLE_BUILD_TESTS=ON
-          -DEPOCH_PARTICLE_BUILD_EXAMPLES=ON
-          -DEPOCH_PARTICLE_WARNINGS_AS_ERRORS=ON
-      - name: Build
-        run: cmake --build out/ci-windows --config Debug --parallel
-      - name: Test
-        run: ctest --test-dir out/ci-windows -C Debug --output-on-failure
+      - name: Build and test through the public Windows wrapper
+        shell: powershell
+        run: .\build.bat -Configuration Debug -CpuOnly -WarningsAsErrors
 
   sanitize:
     name: Clang ASan and UBSan
@@ -143,7 +134,7 @@ jobs:
             libvulkan-dev libxinerama-dev libxcursor-dev xorg-dev libglu1-mesa-dev pkg-config
       - name: Bootstrap pinned vcpkg
         env:
-          VCPKG_BASELINE: d92484ed3c5020c6679d095ad3e5add907887b62
+          VCPKG_BASELINE: c4d9956c0c10a4742840a5e7d93efa2e0015c865
         run: |
           git init "$RUNNER_TEMP/vcpkg"
           git -C "$RUNNER_TEMP/vcpkg" remote add origin https://github.com/microsoft/vcpkg.git
