@@ -2,11 +2,12 @@
 
 #include <epochengine/particle/types.hpp>
 
-#include <array>
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
+#include <utility>
 
 namespace epochengine::particle::scenes::detail
 {
