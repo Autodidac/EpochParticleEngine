@@ -2,13 +2,18 @@
 
 No requested work is silently discarded. This cache separates the completed v0.1.0 baseline from explicitly deferred expansion work.
 
+## Completed in v0.4.0
+
+- [x] Frame-chunking-independent fixed-step scheduling with retained catch-up backlog.
+- [x] Long-frame versus short-frame tick and state-hash equivalence coverage.
+- [x] Fractional time-scale remainder preservation across frame boundaries.
+
 ## Completed in v0.3.0
 
 - [x] GPU-rasterized 5x7 text with one packed render instance per glyph.
 - [x] Bit-exact integer glyph payloads with continuous strokes at fractional sizes.
 - [x] Repository-wide minimum readable font sizing and DPI-aware metrics.
 - [x] EpochGui v0.87.43 header/module/selectable-list integration.
-
 
 ## Completed in v0.1.0
 

@@ -2,6 +2,20 @@
 
 All notable changes are recorded here. The project follows semantic versioning.
 
+## 0.4.0 - 2026-08-08
+
+### Frame independence
+
+- Retains fixed-step backlog when the per-render-frame catch-up work budget is exhausted instead of discarding simulation time.
+- Removes the 250 ms elapsed-time clamp while saturating the nanosecond accumulator safely at its representable limit.
+- Carries fractional scaled nanoseconds between calls, so fractional time scales are also independent of frame chunking.
+
+### Validation
+
+- Added a regression proving one 500 ms frame reaches the same tick and state hash as fifty 10 ms frames after backlog drain.
+- Re-ran strict Windows and Linux builds, deterministic scene replay, sanitizers, Vulkan compilation, and installed-package consumers.
+- Added nanosecond-level coverage proving two 1 ns frames at 0.5x match one 2 ns frame.
+
 ## 0.3.0 - 2026-08-08
 
 ### GPU text

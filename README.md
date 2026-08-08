@@ -67,7 +67,7 @@ The original scenes remain intentionally different models rather than cosmetic p
 
 The core is independent of Vulkan, native windowing, EpochGui, audio, and media. It provides:
 
-- fixed-step scheduling with bounded catch-up, pause, time scale, reset, and single-step;
+- frame-rate-independent fixed-step scheduling with a bounded per-frame catch-up budget that retains backlog, plus pause, time scale, reset, and single-step;
 - structure-of-arrays particle storage with stable IDs and stable compaction;
 - persistent `std::jthread` task execution;
 - deterministic CSR spatial indexing;

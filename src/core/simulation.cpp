@@ -5,6 +5,7 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
+#include <limits>
 #include <memory>
 #include <stdexcept>
 #include <string>
@@ -37,15 +38,24 @@ namespace epochengine::particle
         if (paused_ || elapsed <= std::chrono::nanoseconds::zero())
             return;
 
-        const auto clamped_elapsed = std::min(
-            elapsed,
-            std::chrono::duration_cast<std::chrono::nanoseconds>(
-                std::chrono::milliseconds(250)));
-        const double scaled_count =
-            static_cast<double>(clamped_elapsed.count()) * time_scale_;
-        accumulator_ += std::chrono::nanoseconds{
-            static_cast<std::chrono::nanoseconds::rep>(std::llround(scaled_count))
-        };
+        using DurationRep = std::chrono::nanoseconds::rep;
+        const DurationRep available_count =
+            std::numeric_limits<DurationRep>::max() - accumulator_.count();
+        const long double scaled_count = scaled_time_remainder_
+            + static_cast<long double>(elapsed.count())
+            * static_cast<long double>(time_scale_);
+        DurationRep added_count = available_count;
+        if (scaled_count < static_cast<long double>(available_count))
+        {
+            added_count = static_cast<DurationRep>(scaled_count);
+            scaled_time_remainder_ =
+                scaled_count - static_cast<long double>(added_count);
+        }
+        else
+        {
+            scaled_time_remainder_ = 0.0L;
+        }
+        accumulator_ += std::chrono::nanoseconds{ added_count };
 
         std::uint32_t steps = 0;
         while (accumulator_ >= config_.fixed_step
@@ -64,11 +74,6 @@ namespace epochengine::particle
             accumulator_ -= config_.fixed_step;
         }
 
-        if (steps == config_.maximum_catch_up_steps
-            && accumulator_ >= config_.fixed_step)
-        {
-            accumulator_ %= config_.fixed_step;
-        }
     }
 
     void Simulation::step_once()
@@ -172,6 +177,7 @@ namespace epochengine::particle
         }
         tick_ = 0;
         accumulator_ = {};
+        scaled_time_remainder_ = 0.0L;
         events_.clear();
         return true;
     }
@@ -205,6 +211,7 @@ namespace epochengine::particle
     {
         tick_ = 0;
         accumulator_ = {};
+        scaled_time_remainder_ = 0.0L;
         events_.clear();
 
         const std::uint64_t scene_seed =

@@ -63,9 +63,48 @@
         simulation.set_time_scale(1.0);
         simulation.advance(std::chrono::milliseconds(500));
         require(simulation.tick() == 2U,
-            "Simulation catch-up cap or elapsed-time clamp failed");
+            "Simulation catch-up work budget failed");
         require(simulation.events().size() == 2U,
             "Simulation event aggregation across catch-up steps failed");
+
+        for (std::uint32_t frame = 0; frame < 24U; ++frame)
+            simulation.advance(std::chrono::nanoseconds{ 1 });
+        require(simulation.tick() == 50U,
+            "Simulation discarded fixed-step backlog after a long frame");
+        const std::uint64_t long_frame_hash = simulation.state_hash();
+
+        simulation.reset();
+        for (std::uint32_t frame = 0; frame < 50U; ++frame)
+            simulation.advance(std::chrono::milliseconds{ 10 });
+        require(simulation.tick() == 50U,
+            "Simulation did not consume short-frame fixed steps");
+        require(simulation.state_hash() == long_frame_hash,
+            "Simulation state depends on elapsed-time frame chunking");
+
+        const auto make_fractional_simulation = [] {
+            std::vector<std::unique_ptr<IScene>> fractional_scenes;
+            fractional_scenes.push_back(std::make_unique<CountingScene>());
+            return Simulation({
+                .fixed_step = std::chrono::nanoseconds{ 1 },
+                .maximum_catch_up_steps = 4,
+                .seed = 9,
+                .worker_count = 0
+            }, std::move(fractional_scenes));
+        };
+
+        auto whole_fraction = make_fractional_simulation();
+        auto split_fraction = make_fractional_simulation();
+        whole_fraction.set_time_scale(0.5);
+        split_fraction.set_time_scale(0.5);
+        whole_fraction.advance(std::chrono::nanoseconds{ 2 });
+        split_fraction.advance(std::chrono::nanoseconds{ 1 });
+        split_fraction.advance(std::chrono::nanoseconds{ 1 });
+        require(whole_fraction.tick() == 1U
+                && split_fraction.tick() == 1U,
+            "Fractional time scale depends on elapsed-time frame chunking");
+        require(whole_fraction.state_hash() == split_fraction.state_hash(),
+            "Fractional scaled-time remainder changed simulation state");
+
 
         const Bounds original = simulation.bounds();
         simulation.resize({ std::numeric_limits<float>::infinity(), 720.0F });
@@ -73,7 +112,6 @@
                 && simulation.bounds().height == original.height,
             "Simulation accepted invalid resize bounds");
     }
-
     void require_finite_frame(const RenderFrame& frame)
     {
         for (const RenderItem& item : frame.items())
