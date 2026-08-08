@@ -12,6 +12,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <memory>
+#include <iostream>
 #include <vector>
 
 namespace epochengine::particle::scenes
@@ -35,6 +36,9 @@ namespace epochengine::particle::scenes
                 bounds_ = context.bounds;
                 seed_ = context.seed;
                 generation_ = 0;
+                compute_disabled_ = false;
+                last_update_used_compute_ = false;
+                compute_storage_.clear();
                 cells_.assign(static_cast<std::size_t>(width_) * height_, 0U);
                 next_.assign(cells_.size(), 0U);
 
@@ -60,6 +64,16 @@ namespace epochengine::particle::scenes
             {
                 if ((context.tick % 3U) != 0U)
                     return;
+
+                last_update_used_compute_ = false;
+                if (context.compute != nullptr
+                    && !compute_disabled_
+                    && update_compute(*context.compute))
+                {
+                    ++generation_;
+                    recount();
+                    return;
+                }
 
                 context.tasks.parallel_for(
                     height_,
@@ -141,7 +155,8 @@ namespace epochengine::particle::scenes
                 result.metrics[0] = { "GENERATION", static_cast<double>(generation_) };
                 result.metrics[1] = { "GRID WIDTH", static_cast<double>(width_) };
                 result.metrics[2] = { "GRID HEIGHT", static_cast<double>(height_) };
-                result.metric_count = 3;
+                result.metrics[3] = { "GPU COMPUTE", last_update_used_compute_ ? 1.0 : 0.0 };
+                result.metric_count = 4;
                 return result;
             }
 
@@ -158,6 +173,82 @@ namespace epochengine::particle::scenes
             }
 
         private:
+            [[nodiscard]] bool update_compute(IComputeBackend& backend)
+            {
+                static constexpr std::string_view shader = R"glsl(
+#version 450
+layout(local_size_x = 64) in;
+layout(std430, set = 0, binding = 0) buffer CellStorage
+{
+    uint words[];
+} cells;
+
+void main()
+{
+    uint cell = gl_GlobalInvocationID.x;
+    uint count = cells.words[0];
+    uint width = cells.words[1];
+    uint height = cells.words[2];
+    if (cell >= count)
+        return;
+
+    uint x = cell % width;
+    uint y = cell / width;
+    uint neighbors = 0u;
+    for (int offset_y = -1; offset_y <= 1; ++offset_y)
+    {
+        for (int offset_x = -1; offset_x <= 1; ++offset_x)
+        {
+            if (offset_x == 0 && offset_y == 0)
+                continue;
+            uint neighbor_x = uint(
+                (int(x) + offset_x + int(width)) % int(width));
+            uint neighbor_y = uint(
+                (int(y) + offset_y + int(height)) % int(height));
+            neighbors += cells.words[
+                4u + neighbor_y * width + neighbor_x] != 0u ? 1u : 0u;
+        }
+    }
+
+    bool alive = cells.words[4u + cell] != 0u;
+    cells.words[4u + count + cell] =
+        neighbors == 3u || (alive && neighbors == 2u) ? 1u : 0u;
+}
+)glsl";
+
+                const std::size_t cell_count = cells_.size();
+                compute_storage_.assign(4U + cell_count * 2U, 0U);
+                compute_storage_[0] = static_cast<std::uint32_t>(cell_count);
+                compute_storage_[1] = width_;
+                compute_storage_[2] = height_;
+                for (std::size_t cell = 0; cell < cell_count; ++cell)
+                    compute_storage_[4U + cell] = cells_[cell];
+
+                std::span<std::uint32_t> words{ compute_storage_ };
+                const auto result = backend.dispatch({
+                    .program_id = "epoch.cellular.life.v1",
+                    .shader_source = shader,
+                    .storage = std::as_writable_bytes(words),
+                    .push_constants = {},
+                    .workgroup_count_x = static_cast<std::uint32_t>(
+                        (cell_count + 63U) / 64U)
+                });
+                if (!result)
+                {
+                    compute_disabled_ = true;
+                    std::clog << "Cellular compute fallback: " << result.error() << '\n';
+                    return false;
+                }
+
+                for (std::size_t cell = 0; cell < cell_count; ++cell)
+                {
+                    cells_[cell] = static_cast<std::uint8_t>(
+                        compute_storage_[4U + cell_count + cell] != 0U);
+                }
+                last_update_used_compute_ = true;
+                return true;
+            }
+
             [[nodiscard]] std::size_t index(std::uint32_t x, std::uint32_t y) const noexcept
             {
                 return static_cast<std::size_t>(y) * width_ + x;
@@ -273,6 +364,9 @@ namespace epochengine::particle::scenes
             std::size_t alive_count_{};
             std::vector<std::uint8_t> cells_;
             std::vector<std::uint8_t> next_;
+            std::vector<std::uint32_t> compute_storage_;
+            bool compute_disabled_{};
+            bool last_update_used_compute_{};
         };
     }
 

@@ -66,7 +66,8 @@ namespace epochengine::particle
                 .tick = tick_,
                 .bounds = bounds_,
                 .tasks = tasks_,
-                .events = events_
+                .events = events_,
+                .compute = compute_backend_
             };
             scenes_[active_scene_]->update(context);
             ++tick_;
@@ -84,7 +85,8 @@ namespace epochengine::particle
             .tick = tick_,
             .bounds = bounds_,
             .tasks = tasks_,
-            .events = events_
+            .events = events_,
+            .compute = compute_backend_
         };
         scenes_[active_scene_]->update(context);
         ++tick_;
@@ -138,6 +140,11 @@ namespace epochengine::particle
     void Simulation::set_time_scale(double scale) noexcept
     {
         time_scale_ = std::isfinite(scale) ? std::clamp(scale, 0.05, 16.0) : 1.0;
+    }
+
+    void Simulation::set_compute_backend(IComputeBackend* backend) noexcept
+    {
+        compute_backend_ = backend;
     }
 
     bool Simulation::paused() const noexcept { return paused_; }

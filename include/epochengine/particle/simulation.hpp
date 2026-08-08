@@ -45,6 +45,8 @@ namespace epochengine::particle
         void set_paused(bool paused) noexcept;
         void toggle_paused() noexcept;
         void set_time_scale(double scale) noexcept;
+        // The optional backend must outlive this Simulation or be detached with nullptr.
+        void set_compute_backend(IComputeBackend* backend) noexcept;
 
         [[nodiscard]] bool paused() const noexcept;
         [[nodiscard]] double time_scale() const noexcept;
@@ -81,5 +83,6 @@ namespace epochengine::particle
         std::uint64_t tick_{};
         bool paused_{};
         double time_scale_{ 1.0 };
+        IComputeBackend* compute_backend_{};
     };
 }

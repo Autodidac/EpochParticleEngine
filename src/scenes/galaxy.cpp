@@ -8,11 +8,13 @@
 #include <epochengine/particle/scene.hpp>
 
 #include <algorithm>
+#include <bit>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
 #include <memory>
 #include <numbers>
+#include <iostream>
 
 namespace epochengine::particle::scenes
 {
@@ -38,6 +40,9 @@ namespace epochengine::particle::scenes
                 pointer_repels_ = false;
                 average_speed_ = 0.0;
                 pool_.clear();
+                compute_disabled_ = false;
+                last_update_used_compute_ = false;
+                compute_storage_.clear();
                 pool_.reserve(particle_count_);
 
                 random_.reseed(seed_);
@@ -90,6 +95,13 @@ namespace epochengine::particle::scenes
                 attractor_a_ = center + Vec2{ std::cos(phase), std::sin(phase) } * binary_radius;
                 attractor_b_ = center - Vec2{ std::cos(phase), std::sin(phase) } * binary_radius;
 
+                last_update_used_compute_ = false;
+                if (context.compute != nullptr
+                    && !compute_disabled_
+                    && update_compute(*context.compute, context.delta_seconds))
+                {
+                    return;
+                }
                 auto positions = pool_.positions();
                 auto velocities = pool_.velocities();
                 const float delta_seconds = context.delta_seconds;
@@ -219,7 +231,8 @@ namespace epochengine::particle::scenes
                     static_cast<double>(gravity_strength_)
                 };
                 result.metrics[2] = { "ATTRACTORS", 2.0 };
-                result.metric_count = 3;
+                result.metrics[3] = { "GPU COMPUTE", last_update_used_compute_ ? 1.0 : 0.0 };
+                result.metric_count = 4;
                 return result;
             }
 
@@ -237,6 +250,148 @@ namespace epochengine::particle::scenes
             }
 
         private:
+            [[nodiscard]] bool update_compute(
+                IComputeBackend& backend,
+                float delta_seconds)
+            {
+                static constexpr std::string_view shader = R"glsl(
+#version 450
+layout(local_size_x = 64) in;
+layout(std430, set = 0, binding = 0) buffer GalaxyStorage
+{
+    uint words[];
+} data;
+float f(uint index) { return uintBitsToFloat(data.words[index]); }
+void putf(uint index, float value) { data.words[index] = floatBitsToUint(value); }
+vec2 gravity_from(vec2 position, vec2 source, float strength)
+{
+    vec2 delta = source - position;
+    float distance_squared = dot(delta, delta) + f(11u);
+    float inverse_distance = inversesqrt(distance_squared);
+    return delta * (strength * inverse_distance / distance_squared);
+}
+
+void main()
+{
+    uint particle = gl_GlobalInvocationID.x;
+    uint count = data.words[0];
+    if (particle >= count)
+        return;
+    uint input_base = 32u;
+    uint output_base = input_base + count * 4u;
+    uint source = input_base + particle * 4u;
+    vec2 position = vec2(f(source), f(source + 1u));
+    vec2 velocity = vec2(f(source + 2u), f(source + 3u));
+    vec2 acceleration = gravity_from(
+        position, vec2(f(4u), f(5u)), f(8u));
+    acceleration += gravity_from(
+        position, vec2(f(6u), f(7u)), f(8u) * 0.82);
+
+    if (data.words[16] != 0u)
+    {
+        vec2 delta = vec2(f(14u), f(15u)) - position;
+        float distance_squared = dot(delta, delta) + f(12u);
+        float inverse_distance = inversesqrt(distance_squared);
+        float sign_value = data.words[17] != 0u ? -1.0 : 1.0;
+        acceleration += delta * (
+            sign_value * f(13u) * inverse_distance / distance_squared);
+    }
+
+    velocity = (velocity + acceleration * f(3u)) * 0.9997;
+    position += velocity * f(3u);
+    vec2 bounds = vec2(f(1u), f(2u));
+    if (position.x < -80.0 || position.x > bounds.x + 80.0
+        || position.y < -80.0 || position.y > bounds.y + 80.0)
+    {
+        position = mod(mod(position, bounds) + bounds, bounds);
+        velocity *= 0.75;
+    }
+
+    uint output_word = output_base + particle * 4u;
+    putf(output_word, position.x);
+    putf(output_word + 1u, position.y);
+    putf(output_word + 2u, velocity.x);
+    putf(output_word + 3u, velocity.y);
+}
+)glsl";
+
+                constexpr std::size_t header_words = 32U;
+                constexpr std::size_t stride = 4U;
+                const std::size_t count = pool_.size();
+                const std::size_t output_base = header_words + count * stride;
+                compute_storage_.assign(output_base + count * stride, 0U);
+                const auto put_float = [this](std::size_t word, float value)
+                {
+                    compute_storage_[word] = std::bit_cast<std::uint32_t>(value);
+                };
+                compute_storage_[0] = static_cast<std::uint32_t>(count);
+                put_float(1, bounds_.width);
+                put_float(2, bounds_.height);
+                put_float(3, delta_seconds);
+                put_float(4, attractor_a_.x);
+                put_float(5, attractor_a_.y);
+                put_float(6, attractor_b_.x);
+                put_float(7, attractor_b_.y);
+                put_float(8, gravity_strength_);
+                put_float(11, softening_);
+                put_float(12, pointer_softening_);
+                put_float(13, pointer_strength_);
+                put_float(14, pointer_position_.x);
+                put_float(15, pointer_position_.y);
+                compute_storage_[16] = pointer_active_ ? 1U : 0U;
+                compute_storage_[17] = pointer_repels_ ? 1U : 0U;
+
+                const auto positions = pool_.positions();
+                const auto velocities = pool_.velocities();
+                for (std::size_t particle = 0; particle < count; ++particle)
+                {
+                    const std::size_t word = header_words + particle * stride;
+                    put_float(word, positions[particle].x);
+                    put_float(word + 1U, positions[particle].y);
+                    put_float(word + 2U, velocities[particle].x);
+                    put_float(word + 3U, velocities[particle].y);
+                }
+
+                std::span<std::uint32_t> words{ compute_storage_ };
+                const auto result = backend.dispatch({
+                    .program_id = "epoch.galaxy.v1",
+                    .shader_source = shader,
+                    .storage = std::as_writable_bytes(words),
+                    .push_constants = {},
+                    .workgroup_count_x = static_cast<std::uint32_t>(
+                        (count + 63U) / 64U)
+                });
+                if (!result)
+                {
+                    std::clog << "Galaxy compute fallback: "
+                              << result.error() << '\n';
+                    compute_disabled_ = true;
+                    return false;
+                }
+
+                auto mutable_positions = pool_.positions();
+                auto mutable_velocities = pool_.velocities();
+                average_speed_ = 0.0;
+                for (std::size_t particle = 0; particle < count; ++particle)
+                {
+                    const std::size_t word = output_base + particle * stride;
+                    mutable_positions[particle] = {
+                        std::bit_cast<float>(compute_storage_[word]),
+                        std::bit_cast<float>(compute_storage_[word + 1U])
+                    };
+                    mutable_velocities[particle] = {
+                        std::bit_cast<float>(compute_storage_[word + 2U]),
+                        std::bit_cast<float>(compute_storage_[word + 3U])
+                    };
+                    average_speed_ += static_cast<double>(
+                        length(mutable_velocities[particle]));
+                }
+                if (count != 0)
+                    average_speed_ /= static_cast<double>(count);
+                last_update_used_compute_ = true;
+                return true;
+            }
+
             [[nodiscard]] static Vec2 gravity_from(
                 Vec2 position,
                 Vec2 source,
@@ -264,6 +419,9 @@ namespace epochengine::particle::scenes
             double average_speed_{};
             bool pointer_active_{};
             bool pointer_repels_{};
+            std::vector<std::uint32_t> compute_storage_;
+            bool compute_disabled_{};
+            bool last_update_used_compute_{};
         };
     }
 

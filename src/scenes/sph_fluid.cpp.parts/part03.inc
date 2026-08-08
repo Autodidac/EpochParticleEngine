@@ -12,6 +12,9 @@
             double average_neighbors_{};
             bool pointer_active_{};
             bool pointer_repels_{};
+            std::vector<std::uint32_t> compute_storage_;
+            bool compute_disabled_{};
+            bool last_update_used_compute_{};
         };
     }
 

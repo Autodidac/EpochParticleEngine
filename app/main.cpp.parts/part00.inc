@@ -6,6 +6,7 @@
 
 #include <epochengine/particle/epoch_particle_engine.hpp>
 #include <epochengine/particle/vulkan/renderer.hpp>
+#include <epochengine/particle/vulkan/compute_backend.hpp>
 #include <epochplatformengine/epoch_platform_engine.hpp>
 
 #include <algorithm>

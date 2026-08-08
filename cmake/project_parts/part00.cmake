@@ -30,6 +30,7 @@ endif()
 
 set(EPOCH_PARTICLE_PUBLIC_HEADERS
     include/epochengine/particle/epoch_particle_engine.hpp
+    include/epochengine/particle/compute.hpp
     include/epochengine/particle/events.hpp
     include/epochengine/particle/export.hpp
     include/epochengine/particle/fixed.hpp

@@ -50,10 +50,12 @@ if(EPOCH_PARTICLE_BUILD_VULKAN)
     endif()
 
     set(EPOCH_PARTICLE_VULKAN_HEADERS
-        include/epochengine/particle/vulkan/renderer.hpp)
+        include/epochengine/particle/vulkan/renderer.hpp
+        include/epochengine/particle/vulkan/compute_backend.hpp)
     add_library(EpochParticleEngineVulkan ${EPOCH_PARTICLE_LIBRARY_TYPE}
         src/vulkan/native_surface.hpp
         ${EPOCH_PARTICLE_NATIVE_SURFACE_SOURCE}
+        src/vulkan/compute_backend.cpp
         src/vulkan/renderer.cpp)
     add_library(EpochParticleEngine::Vulkan ALIAS EpochParticleEngineVulkan)
     set_target_properties(EpochParticleEngineVulkan PROPERTIES

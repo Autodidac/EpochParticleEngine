@@ -49,6 +49,22 @@ if(BUILD_TESTING AND EPOCH_PARTICLE_BUILD_TESTS)
     else()
         set_tests_properties(EpochParticleEngine.Determinism PROPERTIES TIMEOUT 180)
     endif()
+    if(TARGET EpochParticleEngineVulkan)
+        add_executable(
+            EpochParticleVulkanComputeTests
+            tests/vulkan_compute_tests.cpp)
+        target_compile_features(EpochParticleVulkanComputeTests PRIVATE cxx_std_23)
+        target_link_libraries(
+            EpochParticleVulkanComputeTests
+            PRIVATE EpochParticleEngineVulkan)
+        epoch_particle_apply_warnings(EpochParticleVulkanComputeTests)
+        add_test(
+            NAME EpochParticleEngine.VulkanCompute
+            COMMAND EpochParticleVulkanComputeTests)
+        set_tests_properties(
+            EpochParticleEngine.VulkanCompute
+            PROPERTIES TIMEOUT 600)
+    endif()
 endif()
 
 if(EPOCH_PARTICLE_BUILD_MODULE)

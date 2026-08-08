@@ -13,6 +13,7 @@
         {
         }
 
+        std::unique_ptr<vulkan::ComputeBackend> compute_backend;
         Simulation simulation;
         RenderFrame frame;
         UiOverlay ui;
