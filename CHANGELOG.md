@@ -2,6 +2,28 @@
 
 All notable changes are recorded here. The project follows semantic versioning.
 
+## 0.1.2 - 2026-08-08
+
+### Fixed
+
+- Removed the unnecessary vcpkg `builtin-baseline`, allowing manifest installation to use the selected checkout's current ports without Git history lookups.
+- Removed automatic fetches and mutations of the user's vcpkg checkout.
+- Fixed `vswhere` JSON-array parsing under Windows PowerShell 5.1.
+- Normalized Visual Studio versions before sorting and generator selection.
+
+## 0.1.1 - 2026-08-08
+
+### Windows build and packaging fixes
+
+- Replaced the invalid vcpkg baseline with a verified registry commit containing `versions/baseline.json`.
+- Changed the default Windows generator from Ninja to automatic Visual Studio selection.
+- Added installed Visual Studio detection through `vswhere`, preferring Visual Studio 2026 and falling back to Visual Studio 2022.
+- Added graceful fallback from Ninja when `ninja.exe` or a configured C++ compiler environment is unavailable.
+- Removed the hard-coded user name from vcpkg discovery and added `-VcpkgRoot` plus `-VcpkgTriplet` overrides.
+- Added vcpkg bootstrap and pinned-baseline fetch validation before CMake configuration.
+- Made `run.ps1` consume the exact successful build directory recorded by `build.ps1`.
+- Updated CI and release jobs to use the same verified vcpkg baseline and to exercise the public Windows batch wrapper.
+
 ## 0.1.0 - 2026-08-07
 
 ### Core library
