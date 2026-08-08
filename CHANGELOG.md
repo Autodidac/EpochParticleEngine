@@ -2,6 +2,15 @@
 
 All notable changes are recorded here. The project follows semantic versioning.
 
+## 0.1.5 - 2026-08-08
+
+### Fixed
+
+- Fixed the Vulkan lab's GCC `-Wsubobject-linkage` failure by giving `LaunchOptions` and `ApplicationState` normal `epochengine::particle::demo` namespace linkage.
+- Resolved platform Vulkan WSI creation functions through `vkGetInstanceProcAddr` instead of requiring extension symbols to be directly link-exported by the loader.
+- Enabled the vcpkg Vulkan loader's `xlib` feature on Linux so `VK_KHR_xlib_surface` is available at runtime as well as compile time.
+- Preserved the v0.1.4 logical font-height and per-monitor DPI fixes while making the full Vulkan example warning-clean under the strict CI build.
+
 ## 0.1.4 - 2026-08-08
 
 ### Fixed

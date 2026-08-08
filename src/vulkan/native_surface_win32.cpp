@@ -15,6 +15,7 @@
 #include <windows.h>
 
 #include <array>
+#include <cstdint>
 #include <string>
 
 namespace epochengine::particle::vulkan::detail
@@ -43,6 +44,17 @@ namespace epochengine::particle::vulkan::detail
             });
         }
 
+        const auto create_win32_surface =
+            reinterpret_cast<PFN_vkCreateWin32SurfaceKHR>(
+                vkGetInstanceProcAddr(instance, "vkCreateWin32SurfaceKHR"));
+        if (create_win32_surface == nullptr)
+        {
+            return std::unexpected(RendererError{
+                RendererErrorCode::initialization_failed,
+                "Vulkan loader did not expose vkCreateWin32SurfaceKHR"
+            });
+        }
+
         const auto window = static_cast<HWND>(surface.window);
         HINSTANCE application = reinterpret_cast<HINSTANCE>(
             GetWindowLongPtrW(window, GWLP_HINSTANCE));
@@ -64,7 +76,7 @@ namespace epochengine::particle::vulkan::detail
             .hwnd = window
         };
         VkSurfaceKHR result_surface = VK_NULL_HANDLE;
-        const VkResult result = vkCreateWin32SurfaceKHR(
+        const VkResult result = create_win32_surface(
             instance,
             &create_info,
             nullptr,
@@ -73,8 +85,8 @@ namespace epochengine::particle::vulkan::detail
         {
             return std::unexpected(RendererError{
                 RendererErrorCode::initialization_failed,
-                "vkCreateWin32SurfaceKHR failed with VkResult " +
-                    std::to_string(static_cast<std::int32_t>(result))
+                "vkCreateWin32SurfaceKHR failed with VkResult "
+                    + std::to_string(static_cast<std::int32_t>(result))
             });
         }
         return result_surface;
