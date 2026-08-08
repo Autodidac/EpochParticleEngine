@@ -123,7 +123,8 @@
                     "SPECIES",
                     static_cast<double>(species_count_)
                 };
-                result.metric_count = 3;
+                result.metrics[3] = { "GPU COMPUTE", last_update_used_compute_ ? 1.0 : 0.0 };
+                result.metric_count = 4;
                 return result;
             }
 

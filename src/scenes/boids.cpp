@@ -8,11 +8,13 @@
 #include <epochengine/particle/scene.hpp>
 #include <epochengine/particle/uniform_grid.hpp>
 
+#include <bit>
 #include <algorithm>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
 #include <memory>
+#include <iostream>
 #include <numbers>
 #include <vector>
 
@@ -39,6 +41,9 @@ namespace epochengine::particle::scenes
                 pointer_active_ = false;
                 pointer_repels_ = false;
                 pool_.clear();
+                compute_disabled_ = false;
+                last_update_used_compute_ = false;
+                compute_storage_.clear();
                 pool_.reserve(boid_count_);
 
                 Pcg32 random(seed_);
@@ -78,6 +83,13 @@ namespace epochengine::particle::scenes
             {
                 bounds_ = context.bounds;
                 grid_.configure(bounds_, perception_radius_);
+                last_update_used_compute_ = false;
+                if (context.compute != nullptr
+                    && !compute_disabled_
+                    && update_compute(*context.compute, context.delta_seconds))
+                {
+                    return;
+                }
                 grid_.build(pool_.positions());
 
                 const auto positions = pool_.positions();
@@ -285,7 +297,8 @@ namespace epochengine::particle::scenes
                     "PERCEPTION",
                     static_cast<double>(perception_radius_)
                 };
-                result.metric_count = 3;
+                result.metrics[3] = { "GPU COMPUTE", last_update_used_compute_ ? 1.0 : 0.0 };
+                result.metric_count = 4;
                 return result;
             }
 
@@ -298,6 +311,213 @@ namespace epochengine::particle::scenes
             }
 
         private:
+            [[nodiscard]] bool update_compute(
+                IComputeBackend& backend,
+                float delta_seconds)
+            {
+                static constexpr std::string_view shader = R"glsl(
+#version 450
+layout(local_size_x = 64) in;
+layout(std430, set = 0, binding = 0) buffer BoidStorage
+{
+    uint words[];
+} data;
+
+float f(uint index) { return uintBitsToFloat(data.words[index]); }
+void putf(uint index, float value) { data.words[index] = floatBitsToUint(value); }
+vec2 safe_normalize(vec2 value, vec2 fallback_value)
+{
+    float magnitude_squared = dot(value, value);
+    if (magnitude_squared > 1.0e-10)
+        return value * inversesqrt(magnitude_squared);
+    float fallback_squared = dot(fallback_value, fallback_value);
+    return fallback_squared > 1.0e-10
+        ? fallback_value * inversesqrt(fallback_squared) : vec2(1.0, 0.0);
+}
+vec2 minimum_image(vec2 delta, vec2 bounds)
+{
+    if (delta.x > bounds.x * 0.5) delta.x -= bounds.x;
+    if (delta.x < -bounds.x * 0.5) delta.x += bounds.x;
+    if (delta.y > bounds.y * 0.5) delta.y -= bounds.y;
+    if (delta.y < -bounds.y * 0.5) delta.y += bounds.y;
+    return delta;
+}
+
+void main()
+{
+    uint boid = gl_GlobalInvocationID.x;
+    uint count = data.words[0];
+    if (boid >= count)
+        return;
+    uint input_base = 32u;
+    uint output_base = input_base + count * 4u;
+    uint source = input_base + boid * 4u;
+    vec2 position = vec2(f(source), f(source + 1u));
+    vec2 velocity = vec2(f(source + 2u), f(source + 3u));
+    vec2 bounds = vec2(f(1u), f(2u));
+
+    vec2 alignment = vec2(0.0);
+    vec2 cohesion = vec2(0.0);
+    vec2 separation = vec2(0.0);
+    uint neighbors = 0u;
+    float perception_squared = f(4u) * f(4u);
+    float separation_squared = f(5u) * f(5u);
+    for (uint other_index = 0u; other_index < count; ++other_index)
+    {
+        if (other_index == boid)
+            continue;
+        uint other = input_base + other_index * 4u;
+        vec2 delta = minimum_image(
+            vec2(f(other), f(other + 1u)) - position, bounds);
+        float distance_squared = dot(delta, delta);
+        if (distance_squared <= 1.0e-5
+            || distance_squared > perception_squared)
+            continue;
+        alignment += vec2(f(other + 2u), f(other + 3u));
+        cohesion += delta;
+        if (distance_squared < separation_squared)
+            separation -= delta / max(distance_squared, 4.0);
+        ++neighbors;
+    }
+
+    vec2 steering = vec2(0.0);
+    if (neighbors != 0u)
+    {
+        float inverse_count = 1.0 / float(neighbors);
+        vec2 velocity_direction = safe_normalize(velocity, vec2(1.0, 0.0));
+        vec2 desired_alignment = safe_normalize(
+            alignment * inverse_count, velocity_direction) * f(7u);
+        vec2 desired_cohesion = safe_normalize(
+            cohesion * inverse_count, velocity_direction) * f(7u);
+        vec2 desired_separation = safe_normalize(
+            separation, velocity_direction) * f(7u);
+        steering += (desired_alignment - velocity) * f(9u);
+        steering += (desired_cohesion - velocity) * f(10u);
+        steering += (desired_separation - velocity) * f(11u);
+    }
+
+    if (data.words[16] != 0u)
+    {
+        vec2 delta = minimum_image(
+            vec2(f(14u), f(15u)) - position, bounds);
+        float distance_squared = dot(delta, delta);
+        if (distance_squared > 1.0
+            && distance_squared < f(12u) * f(12u))
+        {
+            float distance = sqrt(distance_squared);
+            float sign_value = data.words[17] != 0u ? -1.0 : 1.0;
+            steering += delta / distance * sign_value * f(13u)
+                * (1.0 - distance / f(12u));
+        }
+    }
+
+    float force_squared = dot(steering, steering);
+    if (force_squared > f(8u) * f(8u))
+        steering *= f(8u) * inversesqrt(force_squared);
+    velocity += steering * f(3u);
+    float speed = length(velocity);
+    if (speed > f(7u))
+        velocity *= f(7u) / speed;
+    else if (speed < f(6u))
+        velocity = safe_normalize(velocity, vec2(1.0, 0.0)) * f(6u);
+    position = mod(mod(position + velocity * f(3u), bounds) + bounds, bounds);
+
+    uint output_word = output_base + boid * 5u;
+    putf(output_word, position.x);
+    putf(output_word + 1u, position.y);
+    putf(output_word + 2u, velocity.x);
+    putf(output_word + 3u, velocity.y);
+    data.words[output_word + 4u] = neighbors;
+}
+)glsl";
+
+                constexpr std::size_t header_words = 32U;
+                constexpr std::size_t input_stride = 4U;
+                constexpr std::size_t output_stride = 5U;
+                const std::size_t count = pool_.size();
+                const std::size_t output_base =
+                    header_words + count * input_stride;
+                compute_storage_.assign(
+                    output_base + count * output_stride, 0U);
+                const auto put_float = [this](std::size_t word, float value)
+                {
+                    compute_storage_[word] = std::bit_cast<std::uint32_t>(value);
+                };
+                compute_storage_[0] = static_cast<std::uint32_t>(count);
+                put_float(1, bounds_.width);
+                put_float(2, bounds_.height);
+                put_float(3, delta_seconds);
+                put_float(4, perception_radius_);
+                put_float(5, separation_radius_);
+                put_float(6, minimum_speed_);
+                put_float(7, maximum_speed_);
+                put_float(8, maximum_force_);
+                put_float(9, alignment_weight_);
+                put_float(10, cohesion_weight_);
+                put_float(11, separation_weight_);
+                put_float(12, pointer_radius_);
+                put_float(13, pointer_force_);
+                put_float(14, pointer_position_.x);
+                put_float(15, pointer_position_.y);
+                compute_storage_[16] = pointer_active_ ? 1U : 0U;
+                compute_storage_[17] = pointer_repels_ ? 1U : 0U;
+
+                const auto positions = pool_.positions();
+                const auto velocities = pool_.velocities();
+                for (std::size_t boid = 0; boid < count; ++boid)
+                {
+                    const std::size_t word = header_words + boid * input_stride;
+                    put_float(word, positions[boid].x);
+                    put_float(word + 1U, positions[boid].y);
+                    put_float(word + 2U, velocities[boid].x);
+                    put_float(word + 3U, velocities[boid].y);
+                }
+
+                std::span<std::uint32_t> words{ compute_storage_ };
+                const auto result = backend.dispatch({
+                    .program_id = "epoch.boids.v1",
+                    .shader_source = shader,
+                    .storage = std::as_writable_bytes(words),
+                    .push_constants = {},
+                    .workgroup_count_x = static_cast<std::uint32_t>(
+                        (count + 63U) / 64U)
+                });
+                if (!result)
+                {
+                    compute_disabled_ = true;
+                    std::clog << "Boids compute fallback: " << result.error() << '\n';
+                    return false;
+                }
+
+                auto mutable_positions = pool_.positions();
+                auto mutable_velocities = pool_.velocities();
+                average_neighbors_ = 0.0;
+                average_speed_ = 0.0;
+                for (std::size_t boid = 0; boid < count; ++boid)
+                {
+                    const std::size_t word = output_base + boid * output_stride;
+                    mutable_positions[boid] = {
+                        std::bit_cast<float>(compute_storage_[word]),
+                        std::bit_cast<float>(compute_storage_[word + 1U])
+                    };
+                    mutable_velocities[boid] = {
+                        std::bit_cast<float>(compute_storage_[word + 2U]),
+                        std::bit_cast<float>(compute_storage_[word + 3U])
+                    };
+                    neighbor_counts_[boid] = compute_storage_[word + 4U];
+                    average_neighbors_ += neighbor_counts_[boid];
+                    average_speed_ += static_cast<double>(
+                        length(mutable_velocities[boid]));
+                }
+                if (count != 0)
+                {
+                    average_neighbors_ /= static_cast<double>(count);
+                    average_speed_ /= static_cast<double>(count);
+                }
+                last_update_used_compute_ = true;
+                return true;
+            }
+
             static constexpr std::size_t boid_count_ = 1'600;
             static constexpr float perception_radius_ = 52.0F;
             static constexpr float separation_radius_ = 17.0F;
@@ -321,6 +541,9 @@ namespace epochengine::particle::scenes
             double average_speed_{};
             bool pointer_active_{};
             bool pointer_repels_{};
+            std::vector<std::uint32_t> compute_storage_;
+            bool compute_disabled_{};
+            bool last_update_used_compute_{};
         };
     }
 

@@ -2,6 +2,14 @@
 
 No requested work is silently discarded. This cache separates the completed v0.1.0 baseline from explicitly deferred expansion work.
 
+## Completed in v0.5.0
+
+- [x] Reusable Vulkan 1.2 compute executor with cached shaderc pipelines and CPU fallback.
+- [x] Compute kernels for Particle Life, boids, galaxy integration, SPH density/pressure/integration, and Conway Life grids.
+- [x] Immutable current-state and disjoint next-state storage regions for scheduling-order independence.
+- [x] Live RTX 5080 shader execution, readback probe, and per-scene frame-chunk/state-hash equivalence tests.
+- [x] Explicit runtime metric and test assertion preventing silent CPU fallback.
+
 ## Completed in v0.4.0
 
 - [x] Frame-chunking-independent fixed-step scheduling with retained catch-up backlog.
@@ -53,7 +61,6 @@ No requested work is silently discarded. This cache separates the completed v0.1
 
 ## Next-stage candidates
 
-- [ ] Vulkan compute backends for Particle Life, boids, SPH, and large cellular grids.
 - [ ] Deterministic GPU integer-compute experiment with subgroup-independent ordering.
 - [ ] GPU indirect draw and device-local staging for multi-million-particle scenes.
 - [ ] Texture/atlas grid rendering to replace one quad per cell for very large grids.

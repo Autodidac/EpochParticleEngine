@@ -1,5 +1,6 @@
 #pragma once
 
+#include "compute.hpp"
 #include "events.hpp"
 #include "export.hpp"
 #include "hash.hpp"
@@ -76,6 +77,7 @@ namespace epochengine::particle
         Bounds bounds{};
         TaskArena& tasks;
         std::vector<SimulationEvent>& events;
+        IComputeBackend* compute{};
     };
 
     class EPOCH_PARTICLE_API IScene

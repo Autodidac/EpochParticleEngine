@@ -2,6 +2,21 @@
 
 All notable changes are recorded here. The project follows semantic versioning.
 
+## 0.5.0 - 2026-08-08
+
+### Vulkan compute simulation
+
+- Added a reusable Vulkan 1.2 compute backend with shaderc pipeline caching, reusable mapped storage, explicit readback, and deterministic CPU fallback.
+- Moved Particle Life, boids, galaxy integration, SPH density/pressure/integration, and Conway Life cell evolution onto race-free compute shaders.
+- Kept current-state data read-only per dispatch and wrote separate next-state regions so workgroup scheduling cannot change a tick's result.
+- Connected the optional backend through `SceneUpdateContext`; headless and unsupported systems retain the original CPU implementation.
+
+### Frame independence and validation
+
+- Added a real Vulkan readback probe and GPU state-hash equivalence tests for one long elapsed chunk versus equivalent fixed-step chunks.
+- Verified all six scene compute programs on an NVIDIA GeForce RTX 5080 and asserted that none of the five scenes silently selected fallback.
+- Preserved deterministic CPU replay as the portable cross-vendor reference because floating-point GPU results are not promised to be bit-identical across vendors.
+
 ## 0.4.0 - 2026-08-08
 
 ### Frame independence

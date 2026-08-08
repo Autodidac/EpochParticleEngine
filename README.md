@@ -127,6 +127,10 @@ target_link_libraries(MySimulation PRIVATE EpochParticleEngine::Core)
 
 `EpochParticleEngine::Vulkan` consumes finalized `RenderFrame` batches and renders instanced quads. Circle, rounded-rectangle, and packed 5x7 glyph coverage are evaluated in the fragment shader, so text costs one GPU instance per character.
 
+The lab also creates an optional Vulkan 1.2 compute backend. Particle Life, boids, galaxy particles, SPH fluid, and Conway Life submit fixed-tick storage-buffer workloads to cached compute pipelines; each invocation reads the tick's immutable input region and writes a disjoint next-state region. If Vulkan compute is unavailable or a shader fails, the scene disables that GPU path and executes the deterministic CPU reference implementation.
+
+GPU execution is frame-independent on one device because only fixed-step `delta_seconds` values enter the kernels. CPU replay remains the cross-platform determinism authority: floating-point Vulkan results are tested for repeatability on the same device, not falsely advertised as bit-identical across different GPU vendors.
+
 The backend includes:
 
 - direct Win32, Xlib, and Cocoa/Metal surface creation;

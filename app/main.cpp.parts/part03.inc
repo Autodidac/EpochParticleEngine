@@ -11,6 +11,19 @@
             }
             next_state->renderer = std::move(*renderer);
 
+            auto compute_backend = vulkan::ComputeBackend::create();
+            if (compute_backend)
+            {
+                next_state->compute_backend = std::move(*compute_backend);
+                next_state->simulation.set_compute_backend(
+                    next_state->compute_backend.get());
+            }
+            else
+            {
+                std::cerr << "Vulkan compute unavailable; using deterministic CPU fallback: "
+                          << compute_backend.error() << '\n';
+            }
+
             Bounds framebuffer = next_state->renderer->drawable_bounds();
             if (!framebuffer.valid())
                 framebuffer = fallback_bounds(context);

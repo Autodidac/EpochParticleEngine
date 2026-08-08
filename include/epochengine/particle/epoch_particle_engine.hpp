@@ -1,5 +1,6 @@
 #pragma once
 
+#include "compute.hpp"
 #include "events.hpp"
 #include "export.hpp"
 #include "fixed.hpp"

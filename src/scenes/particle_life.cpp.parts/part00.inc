@@ -9,11 +9,13 @@
 #include <epochengine/particle/uniform_grid.hpp>
 
 #include <algorithm>
+#include <bit>
 #include <array>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
 #include <memory>
+#include <iostream>
 #include <numbers>
 #include <vector>
 
@@ -40,6 +42,9 @@ namespace epochengine::particle::scenes
                 pointer_active_ = false;
                 pointer_repels_ = false;
                 interaction_count_ = 0;
+                compute_disabled_ = false;
+                last_update_used_compute_ = false;
+                compute_storage_.clear();
 
                 Pcg32 random(seed_);
                 for (std::size_t row = 0; row < species_count_; ++row)
@@ -86,6 +91,13 @@ namespace epochengine::particle::scenes
             void update(const SceneUpdateContext& context) override
             {
                 bounds_ = context.bounds;
+                last_update_used_compute_ = false;
+                if (context.compute != nullptr
+                    && !compute_disabled_
+                    && update_compute(*context.compute, context.delta_seconds))
+                {
+                    return;
+                }
                 grid_.configure(bounds_, interaction_radius_);
                 grid_.build(pool_.positions());
 

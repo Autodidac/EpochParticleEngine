@@ -12,6 +12,9 @@ export namespace epochengine::particle
     using ::epochengine::particle::BitmapTextMetrics;
     using ::epochengine::particle::Bounds;
     using ::epochengine::particle::Color;
+    using ::epochengine::particle::ComputeDispatch;
+    using ::epochengine::particle::ComputeStatus;
+    using ::epochengine::particle::IComputeBackend;
     using ::epochengine::particle::Fixed32;
     using ::epochengine::particle::FixedVec2;
     using ::epochengine::particle::GridCell;

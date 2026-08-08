@@ -50,6 +50,20 @@ The simulation's internal `TaskArena` may use background workers, but scene phas
 9. The Vulkan backend uploads the batch, issues one instanced draw, and rasterizes glyph bitmaps in the fragment shader.
 The catch-up limit bounds simulation work performed for one rendered frame; it never deletes accumulated fixed-step time. Backlog drains over subsequent frames, so equal elapsed time produces equal authoritative state regardless of frame chunking.
 
+
+## Compute simulation boundary
+
+`Simulation` accepts an optional `IComputeBackend` and forwards it through `SceneUpdateContext`. The core library does not depend on Vulkan; CPU-only, replay, sanitizer, and server builds continue to execute the deterministic scene kernels.
+
+The optional Vulkan backend owns a compute-only device/queue, one reusable mapped storage buffer, a command pool/fence, and cached pipelines keyed by stable program IDs. The five compute-enabled systems use double-buffered regions:
+
+1. CPU scene state is packed into the current-state region.
+2. A compute dispatch reads current state without mutation.
+3. Each invocation writes only its particle/cell slot in a next-state region.
+4. SPH runs density first, then pressure/force/integration against the completed density region.
+5. Fence completion makes results visible for state mirroring, metrics, hashing, and renderer-neutral command generation.
+
+Fixed ticks, immutable inputs, and disjoint outputs make results independent of rendered-frame chunking and workgroup order on the same device. The deterministic CPU backend remains authoritative for portable replay because Vulkan floating-point arithmetic is not guaranteed to be bit-identical between GPU architectures.
 ## Particle storage
 
 `ParticlePool` uses one contiguous vector per property:
