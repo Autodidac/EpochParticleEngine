@@ -2,6 +2,15 @@
 
 All notable changes are recorded here. The project follows semantic versioning.
 
+## 0.1.3 - 2026-08-08
+
+### Fixed
+
+- Corrected the Vulkan pixel-to-NDC Y conversion so upper-left-origin `RenderFrame` content is no longer vertically mirrored.
+- Restored visual alignment between rendered controls and native platform pointer coordinates.
+- Added a public upper-left, positive-Y-down screen-space contract shared by header and module consumers.
+- Added compile-time corner-mapping checks and a shader-source regression guard against reintroducing the Y inversion.
+
 ## 0.1.2 - 2026-08-08
 
 ### Fixed
