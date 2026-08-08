@@ -19,7 +19,7 @@ permissions:
 
 concurrency:
   group: epoch-particle-v0.2.0-import
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   import:
@@ -39,9 +39,36 @@ jobs:
             find .source-import/v0.2.0-tar -maxdepth 1 -type f -name 'part[0-9][0-9]' -print0 | sort -zV
           )
           test "${#parts[@]}" -eq 12
-          LC_ALL=C cat "${parts[@]}" \
-            | tr -cd 'A-Za-z0-9+/=' \
-            | base64 --decode > "$RUNNER_TEMP/source.tar.xz"
+
+          clean="$RUNNER_TEMP/source.b64"
+          : > "$clean"
+          for part in "${parts[@]}"; do
+            raw_bytes=$(wc -c < "$part")
+            invalid_bytes=$(LC_ALL=C tr -d 'A-Za-z0-9+/=\r\n' < "$part" | wc -c)
+            printf '%s raw=%s invalid=%s\n' "$part" "$raw_bytes" "$invalid_bytes"
+            LC_ALL=C tr -cd 'A-Za-z0-9+/=' < "$part" >> "$clean"
+          done
+
+          clean_bytes=$(wc -c < "$clean")
+          printf 'clean total=%s modulo4=%s\n' "$clean_bytes" "$((clean_bytes % 4))"
+          python3 - "$clean" <<'PY'
+          import base64
+          import binascii
+          import pathlib
+          import sys
+
+          path = pathlib.Path(sys.argv[1])
+          payload = path.read_bytes()
+          print(f"python clean bytes={len(payload)} modulo4={len(payload) % 4}")
+          print(f"padding count={payload.count(b'=')} first padding={payload.find(b'=')}")
+          try:
+              base64.b64decode(payload, validate=True)
+          except binascii.Error as error:
+              print(f"strict base64 error: {error}")
+              raise
+          PY
+
+          base64 --decode "$clean" > "$RUNNER_TEMP/source.tar.xz"
           echo "260673a1a1e748c48453979b26424652de08567afe70b453a283c7341cf3ae22  $RUNNER_TEMP/source.tar.xz" | sha256sum -c -
           tar -tJf "$RUNNER_TEMP/source.tar.xz" >/dev/null
           rm -rf "$RUNNER_TEMP/source"
