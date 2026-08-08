@@ -39,7 +39,9 @@ jobs:
             find .source-import/v0.2.0-tar -maxdepth 1 -type f -name 'part[0-9][0-9]' -print0 | sort -zV
           )
           test "${#parts[@]}" -eq 12
-          cat "${parts[@]}" | tr -d '\r\n' | base64 --decode > "$RUNNER_TEMP/source.tar.xz"
+          LC_ALL=C cat "${parts[@]}" \
+            | tr -cd 'A-Za-z0-9+/=' \
+            | base64 --decode > "$RUNNER_TEMP/source.tar.xz"
           echo "260673a1a1e748c48453979b26424652de08567afe70b453a283c7341cf3ae22  $RUNNER_TEMP/source.tar.xz" | sha256sum -c -
           tar -tJf "$RUNNER_TEMP/source.tar.xz" >/dev/null
           rm -rf "$RUNNER_TEMP/source"
