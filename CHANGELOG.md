@@ -2,6 +2,36 @@
 
 All notable changes are recorded here. The project follows semantic versioning.
 
+## 0.2.0 - 2026-08-08
+
+### Particle Studio
+
+- Replaced the old first-scene showcase with **Particle Studio**, an interactive particle scene builder.
+- Added placeable emitters, attractors, repulsors, vortices, and circular collision obstacles.
+- Added live erase, burst, randomized-layout, and clear tools with Shift-modified larger/stronger placement.
+- Added deterministic editor-scene documents plus `Ctrl+S`/`Ctrl+L` persistence to `EpochParticleStudio.epscene`.
+- Added an optional `IScene` scene-document contract and routed it through `Simulation` without forcing persistence on ordinary scenes.
+
+### New simulations
+
+- Added Flow Field advection with 5,200 particles and interactive attract/repel steering.
+- Added Gray-Scott Reaction Diffusion with deterministic seeding and live chemical paint/erase.
+- Added tearable Verlet Spring Cloth with structural/shear constraints and mouse pulling/cutting.
+- Added Physarum Trails, an agent/grid slime-mold hybrid with chemotaxis and trail diffusion.
+- Added Weather Lab combining rain, snow, hail, wind gusts, hail bounce, and pointer-driven vortex wind.
+- Expanded the default catalog from 9 to 15 scenes and kept every scene inside the deterministic replay sweep.
+
+### Existing scene presentation
+
+- Wrapped the existing reference simulations in a lightweight showcase overlay with clear scene identity and controls.
+- Kept the original simulation models intact while making the catalog easier to explore with Tab, Shift+Tab, and the clickable scene panel.
+
+### Validation
+
+- Added Particle Studio document roundtrip and malformed-document regression coverage.
+- Expanded the default-suite contract to all 15 scenes.
+- Preserved strict GCC, Clang, Apple Clang, MSVC/Visual Studio 2026, sanitizer, shared-package consumer, and full Vulkan/vcpkg validation.
+
 ## 0.1.5 - 2026-08-08
 
 ### Fixed
