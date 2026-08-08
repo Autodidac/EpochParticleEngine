@@ -12,14 +12,16 @@
             frame.begin(bounds);
             single.render(frame);
             frame.finalize();
-            require(!frame.items().empty(), "Scene produced an empty render frame");
+            require(!frame.items().empty(),
+                "Scene produced an empty render frame");
             require_finite_frame(frame);
 
             const std::uint64_t completed_hash = single.state_hash();
             single.reset();
             for (int tick = 0; tick < ticks; ++tick)
                 single.step_once();
-            require(single.state_hash() == completed_hash, "Scene reset/replay is not deterministic");
+            require(single.state_hash() == completed_hash,
+                "Scene reset/replay is not deterministic");
         }
     }
 
@@ -34,6 +36,7 @@ int main()
 {
     constexpr std::array tests{
         TestCase{ "fixed point", &test_fixed_point },
+        TestCase{ "text metrics", &test_text_metrics },
         TestCase{ "random repeatability", &test_random_repeatability },
         TestCase{ "task arena", &test_task_arena },
         TestCase{ "particle pool", &test_particle_pool },
@@ -55,7 +58,9 @@ int main()
         }
         catch (const std::exception& exception)
         {
-            std::cerr << "[FAIL] " << test.name << ": " << exception.what() << '\n';
+            std::cerr
+                << "[FAIL] " << test.name
+                << ": " << exception.what() << '\n';
             return 1;
         }
     }
