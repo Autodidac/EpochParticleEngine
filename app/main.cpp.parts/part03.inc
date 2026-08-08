@@ -50,9 +50,8 @@
             uninstall_cocoa_input_bridge(state_->cocoa_input_token);
             state_->cocoa_input_token = nullptr;
 #endif
-            if (state_->renderer)
-                state_->renderer->wait_idle();
             state_.reset();
+            context_ = {};
         }
 
         void apply_framebuffer_size(ApplicationState& state, Bounds framebuffer) noexcept

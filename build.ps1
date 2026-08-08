@@ -150,7 +150,9 @@ Write-Host "Configuring $BuildFlavor $Configuration with $($GeneratorInfo.Name) 
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
 $BuildArgs = @('--build', $BuildDir, '--parallel')
-if ($IsVisualStudio) { $BuildArgs += @('--config', $Configuration) }
+# Reusable MSBuild worker nodes can retain handles below out/build after the
+# build command returns, preventing clean/release tooling from deleting it.
+if ($IsVisualStudio) { $BuildArgs += @('--config', $Configuration, '--', '/nodeReuse:false') }
 & $CMakeExecutable @BuildArgs
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
