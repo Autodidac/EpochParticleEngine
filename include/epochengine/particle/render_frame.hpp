@@ -1,6 +1,7 @@
 #pragma once
 
 #include "export.hpp"
+#include "text.hpp"
 #include "types.hpp"
 
 #include <cstddef>
@@ -39,37 +40,27 @@ namespace epochengine::particle
     class EPOCH_PARTICLE_API RenderFrame
     {
     public:
-        explicit RenderFrame(std::size_t maximum_items = 262'144);
+        explicit RenderFrame(std::size_t maximum_items = 262144);
 
         void begin(Bounds extent);
         void reserve(std::size_t item_count);
 
         void add(RenderItem item);
         void circle(Vec2 center, float radius, Color color, std::int32_t layer = 0);
-        void rectangle(
-            Vec2 center,
-            Vec2 half_extent,
-            Color color,
-            std::int32_t layer = 0,
-            float rotation = 0.0F);
-        void rounded_rectangle(
-            Vec2 center,
-            Vec2 half_extent,
-            float radius,
-            Color color,
+        void rectangle(Vec2 center, Vec2 half_extent, Color color,
+            std::int32_t layer = 0, float rotation = 0.0F);
+        void rounded_rectangle(Vec2 center, Vec2 half_extent, float radius,
+            Color color, std::int32_t layer = 0);
+        void line(Vec2 from, Vec2 to, float thickness, Color color,
             std::int32_t layer = 0);
-        void line(
-            Vec2 from,
-            Vec2 to,
-            float thickness,
-            Color color,
-            std::int32_t layer = 0);
-        void text(
-            Vec2 position,
-            std::string_view value,
-            float scale,
-            Color color,
-            std::int32_t layer = 100,
+        void text(Vec2 position, std::string_view value, TextSize size,
+            Color color, std::int32_t layer = 100,
+            TextAlign alignment = TextAlign::left,
+            float letter_spacing = 0.0F, float line_spacing = 0.0F);
+
+        // Compatibility overload: this is the old bitmap-cell scale.
+        void text(Vec2 position, std::string_view value,
+            float legacy_cell_scale, Color color, std::int32_t layer = 100,
             TextAlign alignment = TextAlign::left);
 
         void finalize();
@@ -80,7 +71,8 @@ namespace epochengine::particle
         [[nodiscard]] std::size_t maximum_items() const noexcept;
 
     private:
-        [[nodiscard]] float text_width(std::string_view value, float scale) const noexcept;
+        [[nodiscard]] float text_width(std::string_view value,
+            const BitmapTextMetrics& metrics) const noexcept;
 
         Bounds extent_{};
         std::vector<RenderItem> items_;

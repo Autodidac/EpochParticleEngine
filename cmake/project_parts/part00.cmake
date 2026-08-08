@@ -38,10 +38,12 @@ set(EPOCH_PARTICLE_PUBLIC_HEADERS
     include/epochengine/particle/particle_pool.hpp
     include/epochengine/particle/random.hpp
     include/epochengine/particle/render_frame.hpp
+    include/epochengine/particle/screen_space.hpp
     include/epochengine/particle/scene.hpp
     include/epochengine/particle/scenes.hpp
     include/epochengine/particle/simulation.hpp
     include/epochengine/particle/task_arena.hpp
+    include/epochengine/particle/text.hpp
     include/epochengine/particle/types.hpp
     include/epochengine/particle/uniform_grid.hpp
     include/epochengine/particle/version.hpp)

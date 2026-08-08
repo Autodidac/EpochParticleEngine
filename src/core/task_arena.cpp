@@ -38,8 +38,11 @@ namespace epochengine::particle
                 ++generation_;
             }
             start_condition_.notify_all();
-            // Join while the mutex and condition variables are still alive.
-            workers_.clear();
+            for (std::thread& worker : workers_)
+            {
+                if (worker.joinable())
+                    worker.join();
+            }
         }
 
         void parallel_for(
@@ -116,7 +119,9 @@ namespace epochengine::particle
             }
         }
 
-        [[nodiscard]] bool claim_chunk(std::size_t& begin, std::size_t& end) noexcept
+        [[nodiscard]] bool claim_chunk(
+            std::size_t& begin,
+            std::size_t& end) noexcept
         {
             begin = next_.load(std::memory_order_relaxed);
             while (begin < count_)
@@ -124,7 +129,8 @@ namespace epochengine::particle
                 const std::size_t remaining = count_ - begin;
                 end = grain_size_ >= remaining ? count_ : begin + grain_size_;
                 if (next_.compare_exchange_weak(
-                        begin, end,
+                        begin,
+                        end,
                         std::memory_order_relaxed,
                         std::memory_order_relaxed))
                 {
@@ -160,7 +166,7 @@ namespace epochengine::particle
             }
         }
 
-        std::vector<std::jthread> workers_;
+        std::vector<std::thread> workers_;
         std::mutex invocation_mutex_;
         mutable std::mutex mutex_;
         std::condition_variable start_condition_;

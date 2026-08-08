@@ -11,7 +11,7 @@ namespace epochengine::particle
 {
     namespace
     {
-        using Glyph = std::array<std::uint8_t, 7>;
+        using Glyph = std::array<std::uint8_t, bitmap_glyph_height>;
 
         [[nodiscard]] bool finite(Vec2 value) noexcept
         {
@@ -137,7 +137,11 @@ namespace epochengine::particle
         finalized_ = false;
     }
 
-    void RenderFrame::circle(Vec2 center, float radius, Color color, std::int32_t layer)
+    void RenderFrame::circle(
+        Vec2 center,
+        float radius,
+        Color color,
+        std::int32_t layer)
     {
         add({
             .center = center,
@@ -212,17 +216,29 @@ namespace epochengine::particle
     void RenderFrame::text(
         Vec2 position,
         std::string_view value,
-        float scale,
+        TextSize size,
         Color color,
         std::int32_t layer,
-        TextAlign alignment)
+        TextAlign alignment,
+        float letter_spacing,
+        float line_spacing)
     {
-        if (!finite(position) || !finite(color) || !std::isfinite(scale)
-            || scale <= 0.0F || value.empty())
+        if (!finite(position) || !finite(color)
+            || !std::isfinite(size.logical_height)
+            || !std::isfinite(size.dpi_scale)
+            || !std::isfinite(letter_spacing)
+            || !std::isfinite(line_spacing)
+            || size.logical_height <= 0.0F
+            || size.dpi_scale <= 0.0F
+            || value.empty())
         {
             return;
         }
 
+        const BitmapTextMetrics metrics = make_bitmap_text_metrics(
+            size,
+            letter_spacing,
+            line_spacing);
         const float origin_x = position.x;
         float cursor_y = position.y;
         std::size_t line_begin = 0;
@@ -235,7 +251,7 @@ namespace epochengine::particle
                 : value.substr(line_begin, line_end - line_begin);
 
             float cursor_x = origin_x;
-            const float width = text_width(line, scale);
+            const float width = text_width(line, metrics);
             if (alignment == TextAlign::center)
                 cursor_x -= width * 0.5F;
             else if (alignment == TextAlign::right)
@@ -248,32 +264,68 @@ namespace epochengine::particle
                     const Glyph glyph = glyph_for(character);
                     for (std::size_t row = 0; row < glyph.size(); ++row)
                     {
-                        for (std::size_t column = 0; column < 5U; ++column)
+                        for (std::size_t column = 0;
+                             column < bitmap_glyph_width;
+                             ++column)
                         {
-                            const std::uint8_t mask =
-                                static_cast<std::uint8_t>(1U << (4U - column));
+                            const std::uint8_t mask = static_cast<std::uint8_t>(
+                                1U << (bitmap_glyph_width - 1U - column));
                             if ((glyph[row] & mask) == 0)
                                 continue;
 
                             rectangle(
                                 {
-                                    cursor_x + (static_cast<float>(column) + 0.5F) * scale,
-                                    cursor_y + (static_cast<float>(row) + 0.5F) * scale
+                                    cursor_x
+                                        + (static_cast<float>(column) + 0.5F)
+                                            * metrics.cell_size,
+                                    cursor_y
+                                        + (static_cast<float>(row) + 0.5F)
+                                            * metrics.cell_size
                                 },
-                                { scale * 0.45F, scale * 0.45F },
+                                {
+                                    metrics.cell_size * 0.45F,
+                                    metrics.cell_size * 0.45F
+                                },
                                 color,
                                 layer);
                         }
                     }
                 }
-                cursor_x += scale * 6.0F;
+                cursor_x += metrics.advance;
             }
 
             if (line_end == std::string_view::npos)
                 break;
             line_begin = line_end + 1U;
-            cursor_y += scale * 8.0F;
+            cursor_y += metrics.line_advance;
         }
+    }
+
+    void RenderFrame::text(
+        Vec2 position,
+        std::string_view value,
+        float legacy_cell_scale,
+        Color color,
+        std::int32_t layer,
+        TextAlign alignment)
+    {
+        if (!std::isfinite(legacy_cell_scale)
+            || legacy_cell_scale <= 0.0F)
+        {
+            return;
+        }
+
+        text(
+            position,
+            value,
+            TextSize{
+                .logical_height = static_cast<float>(bitmap_glyph_height)
+                    * legacy_cell_scale,
+                .dpi_scale = 1.0F
+            },
+            color,
+            layer,
+            alignment);
     }
 
     void RenderFrame::finalize()
@@ -311,10 +363,13 @@ namespace epochengine::particle
         return maximum_items_;
     }
 
-    float RenderFrame::text_width(std::string_view value, float scale) const noexcept
+    float RenderFrame::text_width(
+        std::string_view value,
+        const BitmapTextMetrics& metrics) const noexcept
     {
         if (value.empty())
             return 0.0F;
-        return static_cast<float>(value.size()) * scale * 6.0F - scale;
+        return static_cast<float>(value.size() - 1U) * metrics.advance
+            + metrics.glyph_width;
     }
 }

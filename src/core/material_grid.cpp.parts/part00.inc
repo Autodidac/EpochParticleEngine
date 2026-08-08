@@ -73,7 +73,7 @@ namespace epochengine::particle
             throw std::length_error("MaterialGrid cell count exceeds container limits");
 
         std::vector<GridCell> new_cells(cell_count);
-        std::vector<std::uint8_t> new_moved(cell_count, 0U);
+        std::vector<std::uint8_t> new_moved(cell_count, std::uint8_t{ 0 });
         width_ = new_width;
         height_ = new_height;
         cells_.swap(new_cells);
@@ -83,7 +83,7 @@ namespace epochengine::particle
     void MaterialGrid::clear() noexcept
     {
         std::fill(cells_.begin(), cells_.end(), GridCell{});
-        std::fill(moved_.begin(), moved_.end(), 0U);
+        std::fill(moved_.begin(), moved_.end(), std::uint8_t{ 0 });
     }
 
     std::uint32_t MaterialGrid::width() const noexcept { return width_; }

@@ -1,6 +1,7 @@
 #include "ui_overlay.hpp"
 
 #if EPOCH_PARTICLE_WITH_EPOCHGUI
+#include <gui/font.hpp>
 #include <gui/layout_primitives.hpp>
 #endif
 
@@ -27,27 +28,69 @@ namespace epochengine::particle::demo
         constexpr Color text_primary{ 0.91F, 0.95F, 1.0F, 1.0F };
         constexpr Color text_secondary{ 0.60F, 0.69F, 0.80F, 1.0F };
         constexpr Color text_muted{ 0.43F, 0.51F, 0.62F, 1.0F };
-        constexpr float panel_padding = 16.0F;
-        constexpr float row_height = 35.0F;
-        constexpr float row_gap = 5.0F;
-        constexpr float scene_list_top = 76.0F;
+
+        constexpr float panel_width_logical = 344.0F;
+        constexpr float panel_padding_logical = 16.0F;
+        constexpr float row_height_logical = 31.0F;
+        constexpr float row_gap_logical = 4.0F;
+        constexpr float scene_list_top_logical = 76.0F;
+        constexpr float body_font_height = 12.0F;
+        constexpr float scene_font_height = 13.0F;
+
+#if EPOCH_PARTICLE_WITH_EPOCHGUI
+        static_assert(epochengine::gui_lib::font::glyph_width == bitmap_glyph_width);
+        static_assert(epochengine::gui_lib::font::glyph_height == bitmap_glyph_height);
+        static_assert(epochengine::gui_lib::font::glyph_advance == bitmap_glyph_advance);
+        static_assert(epochengine::gui_lib::font::line_advance == bitmap_line_advance);
+#endif
+
+        [[nodiscard]] float panel_padding(const UiLayout& layout) noexcept
+        {
+            return layout.scaled(panel_padding_logical);
+        }
+
+        [[nodiscard]] float scene_list_top(const UiLayout& layout) noexcept
+        {
+            return layout.scaled(scene_list_top_logical);
+        }
+
+        [[nodiscard]] float scene_row_height(const UiLayout& layout) noexcept
+        {
+            return std::max(
+                layout.scaled(row_height_logical),
+                resolved_text_pixel_height(layout.text_size(scene_font_height))
+                    + layout.scaled(10.0F));
+        }
+
+        [[nodiscard]] float scene_row_gap(const UiLayout& layout) noexcept
+        {
+            return layout.scaled(row_gap_logical);
+        }
+
+        [[nodiscard]] float line_step(
+            const UiLayout& layout,
+            float logical_font_height = body_font_height,
+            float logical_gap = 4.0F) noexcept
+        {
+            return resolved_text_pixel_height(layout.text_size(logical_font_height))
+                + layout.scaled(logical_gap);
+        }
 
         [[nodiscard]] std::string number_string(std::uint64_t value)
         {
             std::array<char, 32> buffer{};
-            const auto [end, error] = std::to_chars(buffer.data(), buffer.data() + buffer.size(), value);
-            return error == std::errc{} ? std::string(buffer.data(), end) : std::string{ "0" };
+            const auto [end, error] = std::to_chars(
+                buffer.data(), buffer.data() + buffer.size(), value);
+            return error == std::errc{}
+                ? std::string(buffer.data(), end)
+                : std::string{ "0" };
         }
 
         [[nodiscard]] std::string decimal_string(double value, int precision)
         {
             std::array<char, 64> buffer{};
             const int count = std::snprintf(
-                buffer.data(),
-                buffer.size(),
-                "%.*f",
-                precision,
-                value);
+                buffer.data(), buffer.size(), "%.*f", precision, value);
             if (count <= 0)
                 return "0";
             return std::string(buffer.data(), static_cast<std::size_t>(count));
@@ -65,14 +108,36 @@ namespace epochengine::particle::demo
 
         void label_value(
             RenderFrame& frame,
+            const UiLayout& layout,
             float x,
             float y,
             std::string_view label,
             std::string_view value)
         {
-            frame.text({ x, y }, label, 1.45F, text_muted, 240);
-            frame.text({ x + 133.0F, y }, value, 1.45F, text_primary, 240);
+            const TextSize size = layout.text_size(body_font_height);
+            frame.text({ x, y }, label, size, text_muted, 240);
+            frame.text(
+                { x + layout.scaled(133.0F), y },
+                value,
+                size,
+                text_primary,
+                240);
         }
+    }
+
+    float UiLayout::scaled(float logical_pixels) const noexcept
+    {
+        return logical_pixels * geometry_scale;
+    }
+
+    TextSize UiLayout::text_size(float logical_height) const noexcept
+    {
+        return {
+            .logical_height = std::max(
+                logical_height,
+                minimum_readable_text_logical_height),
+            .dpi_scale = dpi_scale
+        };
     }
 
     float UiLayout::scene_width() const noexcept
@@ -89,20 +154,49 @@ namespace epochengine::particle::demo
 
     bool UiLayout::point_in_scene(Vec2 point) const noexcept
     {
-        return point.x >= 0.0F && point.y >= 0.0F &&
-            point.x < scene_width() && point.y < framebuffer.height;
+        return point.x >= 0.0F && point.y >= 0.0F
+            && point.x < scene_width() && point.y < framebuffer.height;
     }
 
     UiOverlay::UiOverlay(UiLayout layout)
         : layout_(layout)
     {
+        set_dpi_scale(layout_.dpi_scale);
     }
 
     void UiOverlay::resize(Bounds framebuffer) noexcept
     {
+        if (!framebuffer.valid())
+            return;
+
         layout_.framebuffer = framebuffer;
-        const float maximum_panel = std::max(240.0F, framebuffer.width * 0.42F);
-        layout_.panel_width = std::clamp(layout_.panel_width, 240.0F, maximum_panel);
+        const float height_limited_scale = std::max(
+            1.0F,
+            framebuffer.height / 720.0F);
+        layout_.geometry_scale = std::clamp(
+            std::min(layout_.dpi_scale, height_limited_scale),
+            1.0F,
+            2.0F);
+
+        const float maximum_panel = std::max(
+            1.0F,
+            framebuffer.width * 0.46F);
+        const float minimum_panel = std::min(
+            layout_.scaled(240.0F),
+            maximum_panel);
+        layout_.panel_width = std::clamp(
+            layout_.scaled(panel_width_logical),
+            minimum_panel,
+            maximum_panel);
+    }
+
+    void UiOverlay::set_dpi_scale(float dpi_scale) noexcept
+    {
+        if (!std::isfinite(dpi_scale) || dpi_scale <= 0.0F)
+            return;
+        layout_.dpi_scale = std::clamp(dpi_scale, 0.5F, 4.0F);
+        if (layout_.framebuffer.valid())
+            resize(layout_.framebuffer);
     }
 
     void UiOverlay::toggle_panel() noexcept
@@ -120,19 +214,27 @@ namespace epochengine::particle::demo
         return layout_;
     }
 
-    UiRect UiOverlay::scene_row_rect(std::size_t index, std::size_t count) const noexcept
+    UiRect UiOverlay::scene_row_rect(
+        std::size_t index,
+        std::size_t count) const noexcept
     {
         const float panel_left = layout_.scene_width();
+        const float padding = panel_padding(layout_);
+        const float top = scene_list_top(layout_);
+        const float height = scene_row_height(layout_);
+        const float gap = scene_row_gap(layout_);
 #if EPOCH_PARTICLE_WITH_EPOCHGUI
         const epochengine::gui_lib::SelectableListLayoutOptions options{
             .viewport = {
-                .position = { panel_left + panel_padding, scene_list_top },
-                .size = { layout_.panel_width - panel_padding * 2.0F,
-                          static_cast<float>(count) * (row_height + row_gap) }
+                .position = { panel_left + padding, top },
+                .size = {
+                    layout_.panel_width - padding * 2.0F,
+                    static_cast<float>(count) * (height + gap)
+                }
             },
             .row_count = static_cast<std::uint32_t>(count),
-            .row_height = row_height,
-            .row_gap = row_gap,
+            .row_height = height,
+            .row_gap = gap,
             .scroll_offset = 0.0F,
             .content_padding_x = 0.0F,
             .content_padding_y = 0.0F
@@ -146,18 +248,22 @@ namespace epochengine::particle::demo
                 row.row.position.x + row.row.size.x * 0.5F,
                 row.row.position.y + row.row.size.y * 0.5F
             },
-            .half_extent = { row.row.size.x * 0.5F, row.row.size.y * 0.5F }
+            .half_extent = {
+                row.row.size.x * 0.5F,
+                row.row.size.y * 0.5F
+            }
         };
 #else
         (void)count;
         return {
             .center = {
                 panel_left + layout_.panel_width * 0.5F,
-                scene_list_top + static_cast<float>(index) * (row_height + row_gap) + row_height * 0.5F
+                top + static_cast<float>(index) * (height + gap)
+                    + height * 0.5F
             },
             .half_extent = {
-                layout_.panel_width * 0.5F - panel_padding,
-                row_height * 0.5F
+                layout_.panel_width * 0.5F - padding,
+                height * 0.5F
             }
         };
 #endif
@@ -170,13 +276,17 @@ namespace epochengine::particle::demo
         if (!layout_.panel_visible || point.x < layout_.scene_width())
             return std::nullopt;
 
-        for (std::size_t index = 0; index < simulation.scene_count(); ++index)
+        for (std::size_t index = 0;
+             index < simulation.scene_count();
+             ++index)
         {
-            const UiRect row = scene_row_rect(index, simulation.scene_count());
+            const UiRect row = scene_row_rect(
+                index,
+                simulation.scene_count());
             const Vec2 minimum = row.center - row.half_extent;
             const Vec2 maximum = row.center + row.half_extent;
-            if (point.x >= minimum.x && point.x <= maximum.x &&
-                point.y >= minimum.y && point.y <= maximum.y)
+            if (point.x >= minimum.x && point.x <= maximum.x
+                && point.y >= minimum.y && point.y <= maximum.y)
             {
                 return index;
             }
@@ -202,15 +312,23 @@ namespace epochengine::particle::demo
         if (!layout_.panel_visible)
         {
             frame.rounded_rectangle(
-                { layout_.framebuffer.width - 62.0F, 26.0F },
-                { 50.0F, 16.0F },
-                7.0F,
+                {
+                    layout_.framebuffer.width - layout_.scaled(62.0F),
+                    layout_.scaled(26.0F)
+                },
+                { layout_.scaled(50.0F), layout_.scaled(18.0F) },
+                layout_.scaled(7.0F),
                 panel_background,
                 210);
+            const TextSize size = layout_.text_size(12.0F);
             frame.text(
-                { layout_.framebuffer.width - 62.0F, 21.0F },
+                {
+                    layout_.framebuffer.width - layout_.scaled(62.0F),
+                    layout_.scaled(26.0F)
+                        - resolved_text_pixel_height(size) * 0.5F
+                },
                 "F1 PANEL",
-                1.35F,
+                size,
                 text_secondary,
                 220,
                 TextAlign::center);
@@ -220,7 +338,10 @@ namespace epochengine::particle::demo
         const float panel_center = boundary + layout_.panel_width * 0.5F;
         frame.rectangle(
             { panel_center, layout_.framebuffer.height * 0.5F },
-            { layout_.panel_width * 0.5F, layout_.framebuffer.height * 0.5F },
+            {
+                layout_.panel_width * 0.5F,
+                layout_.framebuffer.height * 0.5F
+            },
             panel_background,
             195);
         frame.rectangle(
@@ -229,16 +350,17 @@ namespace epochengine::particle::demo
             panel_border,
             205);
 
+        const float padding = panel_padding(layout_);
         frame.text(
-            { boundary + panel_padding, 18.0F },
+            { boundary + padding, layout_.scaled(18.0F) },
             "EPOCH PARTICLE ENGINE",
-            2.1F,
+            layout_.text_size(18.0F),
             text_primary,
             220);
         frame.text(
-            { boundary + panel_padding, 48.0F },
+            { boundary + padding, layout_.scaled(48.0F) },
             "VULKAN HYBRID LAB",
-            1.35F,
+            layout_.text_size(12.0F),
             accent,
             220);
 
@@ -252,44 +374,71 @@ namespace epochengine::particle::demo
             device_name);
     }
 
-    void UiOverlay::render_scene_list(RenderFrame& frame, const Simulation& simulation) const
+    void UiOverlay::render_scene_list(
+        RenderFrame& frame,
+        const Simulation& simulation) const
     {
         const float panel_left = layout_.scene_width();
-        for (std::size_t index = 0; index < simulation.scene_count(); ++index)
+        const float padding = panel_padding(layout_);
+        const TextSize shortcut_size = layout_.text_size(12.0F);
+        const TextSize name_size = layout_.text_size(scene_font_height);
+
+        for (std::size_t index = 0;
+             index < simulation.scene_count();
+             ++index)
         {
-            const UiRect row = scene_row_rect(index, simulation.scene_count());
+            const UiRect row = scene_row_rect(
+                index,
+                simulation.scene_count());
             const bool selected = index == simulation.active_scene_index();
             frame.rounded_rectangle(
                 row.center,
                 row.half_extent,
-                7.0F,
+                layout_.scaled(7.0F),
                 selected ? row_selected : row_background,
                 210);
 
             if (selected)
             {
                 frame.rounded_rectangle(
-                    { row.center.x - row.half_extent.x + 2.5F, row.center.y },
-                    { 2.5F, row.half_extent.y - 4.0F },
-                    2.5F,
+                    {
+                        row.center.x - row.half_extent.x
+                            + layout_.scaled(2.5F),
+                        row.center.y
+                    },
+                    {
+                        layout_.scaled(2.5F),
+                        row.half_extent.y - layout_.scaled(4.0F)
+                    },
+                    layout_.scaled(2.5F),
                     accent,
                     212);
             }
 
             const SceneInfo info = simulation.scene_info(index);
-            const char shortcut = index < 9 ? static_cast<char>('1' + index) : '?';
+            const char shortcut = index < 9
+                ? static_cast<char>('1' + index)
+                : '?';
             std::array<char, 2> shortcut_text{ shortcut, '\0' };
             frame.text(
-                { panel_left + panel_padding + 13.0F, row.center.y - 5.0F },
+                {
+                    panel_left + padding + layout_.scaled(13.0F),
+                    row.center.y
+                        - resolved_text_pixel_height(shortcut_size) * 0.5F
+                },
                 shortcut_text.data(),
-                1.35F,
+                shortcut_size,
                 selected ? text_primary : text_muted,
                 220,
                 TextAlign::center);
             frame.text(
-                { panel_left + panel_padding + 31.0F, row.center.y - 5.0F },
+                {
+                    panel_left + padding + layout_.scaled(31.0F),
+                    row.center.y
+                        - resolved_text_pixel_height(name_size) * 0.5F
+                },
                 info.name,
-                1.45F,
+                name_size,
                 selected ? text_primary : text_secondary,
                 220);
         }
@@ -304,65 +453,135 @@ namespace epochengine::particle::demo
         std::string_view device_name) const
     {
         const float panel_left = layout_.scene_width();
-        const float x = panel_left + panel_padding;
-        const float list_bottom = scene_list_top +
-            static_cast<float>(simulation.scene_count()) * (row_height + row_gap);
-        float y = list_bottom + 15.0F;
+        const float x = panel_left + panel_padding(layout_);
+        const float list_bottom = scene_list_top(layout_)
+            + static_cast<float>(simulation.scene_count())
+                * (scene_row_height(layout_) + scene_row_gap(layout_));
+        float y = list_bottom + layout_.scaled(12.0F);
+
+        const float body_step = line_step(layout_);
+        const float footer_step = line_step(layout_, 12.0F, 4.0F);
+        const float footer_height = footer_step * 7.0F
+            + layout_.scaled(8.0F);
+        const float footer_top = std::max(
+            list_bottom,
+            layout_.framebuffer.height - footer_height);
 
         const SceneInfo info = simulation.active_scene_info();
-        frame.text({ x, y }, info.name, 1.75F, accent, 230);
-        y += 23.0F;
+        frame.text(
+            { x, y },
+            info.name,
+            layout_.text_size(15.0F),
+            accent,
+            230);
+        y += line_step(layout_, 15.0F, 6.0F);
 
         const SceneStats stats = simulation.active_scene_stats();
-        label_value(frame, x, y, "PARTICLES", number_string(stats.particle_count));
-        y += 18.0F;
-        label_value(frame, x, y, "ACTIVE CELLS", number_string(stats.active_cell_count));
-        y += 18.0F;
-        label_value(frame, x, y, "TICK", number_string(simulation.tick()));
-        y += 18.0F;
-        label_value(frame, x, y, "STATE HASH", number_string(simulation.state_hash()));
-        y += 23.0F;
-
-        for (std::size_t index = 0; index < stats.metric_count; ++index)
+        auto draw_value = [&](std::string_view label, std::string value)
         {
-            label_value(
-                frame,
-                x,
-                y,
-                stats.metrics[index].label,
-                decimal_string(stats.metrics[index].value, 2));
-            y += 18.0F;
+            if (y + body_step > footer_top - layout_.scaled(6.0F))
+                return false;
+            label_value(frame, layout_, x, y, label, value);
+            y += body_step;
+            return true;
+        };
+
+        if (draw_value("PARTICLES", number_string(stats.particle_count))
+            && draw_value(
+                "ACTIVE CELLS",
+                number_string(stats.active_cell_count))
+            && draw_value("TICK", number_string(simulation.tick())))
+        {
+            draw_value("STATE HASH", number_string(simulation.state_hash()));
         }
 
-        y = std::max(y + 10.0F, layout_.framebuffer.height - 174.0F);
+        y += layout_.scaled(3.0F);
+        for (std::size_t index = 0; index < stats.metric_count; ++index)
+        {
+            if (!draw_value(
+                    stats.metrics[index].label,
+                    decimal_string(stats.metrics[index].value, 2)))
+            {
+                break;
+            }
+        }
+
+        y = footer_top;
         frame.line(
             { x, y },
-            { panel_left + layout_.panel_width - panel_padding, y },
+            {
+                panel_left + layout_.panel_width
+                    - panel_padding(layout_),
+                y
+            },
             1.0F,
             panel_border,
             220);
-        y += 13.0F;
+        y += layout_.scaled(10.0F);
 
-        label_value(frame, x, y, "FPS", decimal_string(frames_per_second, 1));
-        y += 18.0F;
-        label_value(frame, x, y, "FRAME MS", decimal_string(frame_milliseconds, 2));
-        y += 18.0F;
-        label_value(frame, x, y, "TIME SCALE", decimal_string(simulation.time_scale(), 2));
-        y += 18.0F;
-        label_value(frame, x, y, "WORKERS", number_string(simulation.worker_count()));
-        y += 18.0F;
-        label_value(frame, x, y, "GPU ITEMS", number_string(gpu_capacity));
-        y += 22.0F;
+        label_value(
+            frame,
+            layout_,
+            x,
+            y,
+            "FPS",
+            decimal_string(frames_per_second, 1));
+        y += footer_step;
+        label_value(
+            frame,
+            layout_,
+            x,
+            y,
+            "FRAME MS",
+            decimal_string(frame_milliseconds, 2));
+        y += footer_step;
+        label_value(
+            frame,
+            layout_,
+            x,
+            y,
+            "TIME SCALE",
+            decimal_string(simulation.time_scale(), 2));
+        y += footer_step;
+        label_value(
+            frame,
+            layout_,
+            x,
+            y,
+            "WORKERS",
+            number_string(simulation.worker_count()));
+        y += footer_step;
+        label_value(
+            frame,
+            layout_,
+            x,
+            y,
+            "GPU ITEMS",
+            number_string(gpu_capacity));
+        y += footer_step;
 
-        frame.text({ x, y }, compact_device_name(device_name), 1.15F, text_muted, 240);
-        y += 20.0F;
+        const TextSize footer_size = layout_.text_size(12.0F);
         frame.text(
             { x, y },
-            simulation.paused() ? "PAUSED  SPACE PLAY" : "SPACE PAUSE  R RESET  . STEP",
-            1.15F,
+            compact_device_name(device_name),
+            footer_size,
+            text_muted,
+            240);
+        y += footer_step;
+        frame.text(
+            { x, y },
+            simulation.paused()
+                ? "PAUSED  SPACE PLAY"
+                : "SPACE PAUSE  R RESET  . STEP",
+            footer_size,
             simulation.paused() ? accent : text_secondary,
             240);
-        y += 17.0F;
-        frame.text({ x, y }, "TAB SCENE  - + SPEED  F1 PANEL", 1.15F, text_muted, 240);
+        y += footer_step;
+        frame.text(
+            { x, y },
+            "TAB SCENE  - + SPEED  F1 PANEL",
+            footer_size,
+            text_muted,
+            240);
     }
 }

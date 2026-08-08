@@ -2,6 +2,18 @@
 
 All notable changes are recorded here. The project follows semantic versioning.
 
+## 0.1.4 - 2026-08-08
+
+### Fixed
+
+- Replaced ambiguous bitmap-cell text scale with an explicit logical-height plus DPI-scale contract.
+- Added `TextSize`, `BitmapTextMetrics`, and shared text metric helpers to the public API and module facade.
+- Updated `RenderFrame` text rasterization so logical font height controls the actual glyph height; the legacy cell-scale overload remains source-compatible.
+- Raised the interactive lab to readable 12-18 logical-pixel font roles and made row/footer spacing derive from the same metrics used to render text.
+- Added per-monitor DPI event handling to the lab and separated font DPI scaling from geometry scaling.
+- Added compile-time and runtime regression checks for 150% DPI text sizing and emitted glyph geometry.
+- Added `screen_space.hpp` and `text.hpp` to the installed public-header set.
+
 ## 0.1.3 - 2026-08-08
 
 ### Fixed

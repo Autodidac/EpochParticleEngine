@@ -9,6 +9,7 @@ export module epoch.particle;
 // make the same entities visible to importers without creating a second ABI.
 export namespace epochengine::particle
 {
+    using ::epochengine::particle::BitmapTextMetrics;
     using ::epochengine::particle::Bounds;
     using ::epochengine::particle::Color;
     using ::epochengine::particle::Fixed32;
@@ -41,6 +42,7 @@ export namespace epochengine::particle
     using ::epochengine::particle::StableHasher;
     using ::epochengine::particle::TaskArena;
     using ::epochengine::particle::TextAlign;
+    using ::epochengine::particle::TextSize;
     using ::epochengine::particle::UniformGridIndex;
     using ::epochengine::particle::Vec2;
 
@@ -51,6 +53,7 @@ export namespace epochengine::particle
     using ::epochengine::particle::length;
     using ::epochengine::particle::length_squared;
     using ::epochengine::particle::lerp;
+    using ::epochengine::particle::make_bitmap_text_metrics;
     using ::epochengine::particle::make_default_scenes;
     using ::epochengine::particle::mix_u32;
     using ::epochengine::particle::normalized_or;
@@ -60,6 +63,7 @@ export namespace epochengine::particle
     using ::epochengine::particle::operator/;
     using ::epochengine::particle::perpendicular;
     using ::epochengine::particle::radians;
+    using ::epochengine::particle::resolved_text_pixel_height;
     using ::epochengine::particle::rotate;
     using ::epochengine::particle::screen_to_vulkan_ndc;
     using ::epochengine::particle::with_alpha;
