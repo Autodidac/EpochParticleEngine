@@ -29,26 +29,26 @@ namespace epochengine::particle::demo
 {
     namespace platform = epochengine::platform;
 
+    struct LaunchOptions final
+    {
+        int width{ 1600 };
+        int height{ 900 };
+        std::uint64_t seed{ 0x45504f4348504152ULL };
+        std::size_t workers{ TaskArena::recommended_worker_count() };
+        std::size_t scene{};
+        bool validation{
+#ifndef NDEBUG
+            true
+#else
+            false
+#endif
+        };
+        bool vertical_sync{ true };
+        bool show_help{};
+    };
+
     namespace
     {
-        struct LaunchOptions final
-        {
-            int width{ 1600 };
-            int height{ 900 };
-            std::uint64_t seed{ 0x45504f4348504152ULL };
-            std::size_t workers{ TaskArena::recommended_worker_count() };
-            std::size_t scene{};
-            bool validation{
-#ifndef NDEBUG
-                true
-#else
-                false
-#endif
-            };
-            bool vertical_sync{ true };
-            bool show_help{};
-        };
-
         template<class Integer>
         [[nodiscard]] bool parse_integer(std::string_view text, Integer& value) noexcept
         {
