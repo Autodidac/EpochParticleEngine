@@ -28,12 +28,26 @@
                     });
                 break;
             case platform::WindowEventType::resized:
-                if (event.width > 0 && event.height > 0 && !state_->renderer->drawable_bounds().valid())
+                if (event.width > 0 && event.height > 0
+                    && !state_->renderer->drawable_bounds().valid())
                 {
                     apply_framebuffer_size(*state_, {
                         static_cast<float>(event.width),
                         static_cast<float>(event.height)
                     });
+                }
+                break;
+            case platform::WindowEventType::dpi_changed:
+                if (event.width > 0)
+                {
+                    state_->ui.set_dpi_scale(std::clamp(
+                        static_cast<float>(event.width) / 96.0F,
+                        0.5F,
+                        4.0F));
+                    const Bounds framebuffer =
+                        state_->renderer->drawable_bounds();
+                    if (framebuffer.valid())
+                        apply_framebuffer_size(*state_, framebuffer);
                 }
                 break;
             default:
@@ -66,24 +80,35 @@
                 handle_pointer_move({ event.x, event.y });
                 break;
             case CocoaInputType::pointer_pressed:
-                handle_pointer_button(translate_pointer_button(event.button), true, { event.x, event.y });
+                handle_pointer_button(
+                    translate_pointer_button(event.button),
+                    true,
+                    { event.x, event.y });
                 break;
             case CocoaInputType::pointer_released:
-                handle_pointer_button(translate_pointer_button(event.button), false, { event.x, event.y });
+                handle_pointer_button(
+                    translate_pointer_button(event.button),
+                    false,
+                    { event.x, event.y });
                 break;
             }
         }
 #endif
 
-        [[nodiscard]] PointerButton translate_pointer_button(std::int32_t button) const noexcept
+        [[nodiscard]] PointerButton translate_pointer_button(
+            std::int32_t button) const noexcept
         {
             if (!state_)
                 return PointerButton::middle;
             if (button == 1)
                 return PointerButton::primary;
             if (state_->driver == platform::DriverKind::x11)
-                return button == 3 ? PointerButton::secondary : PointerButton::middle;
-            return button == 2 ? PointerButton::secondary : PointerButton::middle;
+                return button == 3
+                    ? PointerButton::secondary
+                    : PointerButton::middle;
+            return button == 2
+                ? PointerButton::secondary
+                : PointerButton::middle;
         }
 
         void handle_key(LogicalKey key, bool pressed, bool repeated) noexcept
@@ -108,7 +133,8 @@
             const auto value = std::to_underlying(key);
             if (value >= first_scene && value <= last_scene)
             {
-                state_->simulation.select_scene(static_cast<std::size_t>(value - first_scene));
+                state_->simulation.select_scene(
+                    static_cast<std::size_t>(value - first_scene));
                 return;
             }
 
@@ -141,17 +167,24 @@
                 break;
             case LogicalKey::slower:
                 if (!repeated)
-                    state_->simulation.set_time_scale(state_->simulation.time_scale() * 0.5);
+                {
+                    state_->simulation.set_time_scale(
+                        state_->simulation.time_scale() * 0.5);
+                }
                 break;
             case LogicalKey::faster:
                 if (!repeated)
-                    state_->simulation.set_time_scale(state_->simulation.time_scale() * 2.0);
+                {
+                    state_->simulation.set_time_scale(
+                        state_->simulation.time_scale() * 2.0);
+                }
                 break;
             case LogicalKey::panel:
                 if (!repeated)
                 {
                     state_->ui.toggle_panel();
-                    state_->simulation.resize(state_->ui.layout().scene_bounds());
+                    state_->simulation.resize(
+                        state_->ui.layout().scene_bounds());
                 }
                 break;
             default:
