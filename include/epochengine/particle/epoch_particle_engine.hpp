@@ -8,6 +8,7 @@
 #include "particle_pool.hpp"
 #include "random.hpp"
 #include "render_frame.hpp"
+#include "screen_space.hpp"
 #include "scene.hpp"
 #include "scenes.hpp"
 #include "simulation.hpp"
