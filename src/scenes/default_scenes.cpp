@@ -3,6 +3,7 @@
 #include <epochengine/particle/scenes.hpp>
 #include <epochengine/particle/text.hpp>
 
+#include <algorithm>
 #include <memory>
 #include <string>
 #include <string_view>
