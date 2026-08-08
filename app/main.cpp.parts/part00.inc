@@ -15,6 +15,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstdlib>
+#include <exception>
 #include <expected>
 #include <fstream>
 #include <iostream>
@@ -42,7 +43,7 @@ namespace epochengine::particle::demo
 #ifndef NDEBUG
             true
 #else
-                false
+            false
 #endif
         };
         bool vertical_sync{ true };
