@@ -1,0 +1,35 @@
+name: split-staged-v0.2.0-tail
+
+on:
+  push:
+    branches:
+      - feat/font-scenes-v0.2.0
+    paths:
+      - '.github/workflows/split-tail.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  split:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/font-scenes-v0.2.0
+          fetch-depth: 0
+      - name: Split existing payload tail
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -f .source-import/v0.2.0-tar/remote-tail*
+          split -b 900 -d -a 2 \
+            .source-import/v0.2.0-tar/part11 \
+            .source-import/v0.2.0-tar/remote-tail
+          wc -c .source-import/v0.2.0-tar/part11
+          sha256sum .source-import/v0.2.0-tar/part11
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add .source-import/v0.2.0-tar/remote-tail*
+          git commit -m 'chore: split staged source payload tail'
+          git push origin HEAD:feat/font-scenes-v0.2.0
