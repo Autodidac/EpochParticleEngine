@@ -67,7 +67,7 @@
             const std::string_view executable =
                 launch.argc > 0 && launch.argv != nullptr && launch.argv[0] != nullptr
                     ? std::string_view{ launch.argv[0] }
-                    : std::string_view{ "EpochParticleLab" };
+                    : std::string_view{ "EpochParticleStudio" };
 
             const auto parsed = parse_arguments(launch.argc, launch.argv);
             if (!parsed)
@@ -109,7 +109,7 @@
                 .type = platform::ContextType::vulkan,
                 .thread_policy = platform::ThreadPolicy::automatic,
                 .window = {
-                    .title = "EpochParticleEngine - Vulkan Hybrid Lab",
+                    .title = "EpochParticleEngine - Particle Studio",
                     .width = options_.width,
                     .height = options_.height,
                     .mode = platform::WindowMode::top_level,
@@ -118,7 +118,7 @@
                     .decorated = true,
                     .high_dpi = true
                 },
-                .route = "epoch.particle.lab"
+                .route = "epoch.particle.studio"
             }, std::move(callbacks));
 
             if (!context)
