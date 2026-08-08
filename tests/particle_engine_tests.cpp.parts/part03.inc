@@ -109,7 +109,7 @@
             .worker_count = 4
         });
 
-        require(single.scene_count() == 9, "Default scene suite is incomplete");
+        require(single.scene_count() == 15, "Default scene suite is incomplete");
         require(parallel.scene_count() == single.scene_count(), "Scene suites differ by worker count");
         single.resize(bounds);
         parallel.resize(bounds);
