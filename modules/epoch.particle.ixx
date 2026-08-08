@@ -32,6 +32,8 @@ export namespace epochengine::particle
     using ::epochengine::particle::SceneResetContext;
     using ::epochengine::particle::SceneStats;
     using ::epochengine::particle::SceneUpdateContext;
+    using ::epochengine::particle::ScreenOrigin;
+    using ::epochengine::particle::ScreenSpaceConvention;
     using ::epochengine::particle::Simulation;
     using ::epochengine::particle::SimulationConfig;
     using ::epochengine::particle::SimulationEvent;
@@ -59,6 +61,7 @@ export namespace epochengine::particle
     using ::epochengine::particle::perpendicular;
     using ::epochengine::particle::radians;
     using ::epochengine::particle::rotate;
+    using ::epochengine::particle::screen_to_vulkan_ndc;
     using ::epochengine::particle::with_alpha;
 
     using ::epochengine::particle::library_name;
