@@ -18,7 +18,7 @@
 
     void MaterialGrid::step_granular(std::uint64_t tick, std::uint64_t seed)
     {
-        std::fill(moved_.begin(), moved_.end(), 0U);
+        std::fill(moved_.begin(), moved_.end(), std::uint8_t{ 0 });
 
         const bool scan_left_to_right = (tick & 1U) == 0U;
         for (std::int32_t y = static_cast<std::int32_t>(height_) - 1; y >= 0; --y)
