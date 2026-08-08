@@ -16,11 +16,13 @@
 #include <cstdint>
 #include <cstdlib>
 #include <expected>
+#include <fstream>
 #include <iostream>
 #include <limits>
 #include <memory>
 #include <new>
 #include <optional>
+#include <sstream>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -40,7 +42,7 @@ namespace epochengine::particle::demo
 #ifndef NDEBUG
             true
 #else
-            false
+                false
 #endif
         };
         bool vertical_sync{ true };
@@ -137,19 +139,20 @@ namespace epochengine::particle::demo
         void print_usage(std::string_view executable)
         {
             std::cout
-                << "EpochParticleEngine Vulkan Hybrid Lab\n\n"
+                << "EpochParticleEngine Vulkan Particle Studio\n\n"
                 << "Usage: " << executable << " [options]\n\n"
                 << "  --width N           Initial window width (minimum 640)\n"
                 << "  --height N          Initial window height (minimum 480)\n"
                 << "  --seed N            Deterministic 64-bit simulation seed\n"
                 << "  --workers N         Background worker threads; 0 is single-threaded\n"
-                << "  --scene N           Start on scene 1 through 9\n"
+                << "  --scene N           Start on scene 1 through 15\n"
                 << "  --validation        Request Vulkan validation\n"
                 << "  --no-validation     Disable Vulkan validation\n"
                 << "  --vsync             Use FIFO presentation\n"
                 << "  --no-vsync          Prefer mailbox/immediate presentation\n"
                 << "  -h, --help          Show this help\n\n"
-                << "Controls: 1-9 scene, Tab next, Shift+Tab previous, Space pause,\n"
-                << "R reset, . single step, -/+ speed, F1 panel, Esc exit.\n";
+                << "Controls: 1-9 scene shortcut, Tab next, Shift+Tab previous, Space pause,\n"
+                << "R reset, . single step, -/+ speed, F1 panel, Ctrl+S save editor scene,\n"
+                << "Ctrl+L load editor scene, Esc exit. Scenes 10-15 are clickable in the panel.\n";
         }
 
