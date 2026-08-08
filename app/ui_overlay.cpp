@@ -1,8 +1,8 @@
 #include "ui_overlay.hpp"
 
 #if EPOCH_PARTICLE_WITH_EPOCHGUI
-#include <gui/font.hpp>
-#include <gui/layout_primitives.hpp>
+#include <epoch/gui/layout_primitives.hpp>
+#include <epoch/gui/version.hpp>
 #endif
 
 #include <algorithm>
@@ -38,10 +38,10 @@ namespace epochengine::particle::demo
         constexpr float scene_font_height = 13.0F;
 
 #if EPOCH_PARTICLE_WITH_EPOCHGUI
-        static_assert(epochengine::gui_lib::font::glyph_width == bitmap_glyph_width);
-        static_assert(epochengine::gui_lib::font::glyph_height == bitmap_glyph_height);
-        static_assert(epochengine::gui_lib::font::glyph_advance == bitmap_glyph_advance);
-        static_assert(epochengine::gui_lib::font::line_advance == bitmap_line_advance);
+        static_assert(epochnamespace::gui_lib::version_major == 0);
+        static_assert(epochnamespace::gui_lib::version_minor > 87
+            || (epochnamespace::gui_lib::version_minor == 87
+                && epochnamespace::gui_lib::version_revision >= 43));
 #endif
 
         [[nodiscard]] float panel_padding(const UiLayout& layout) noexcept
@@ -224,7 +224,7 @@ namespace epochengine::particle::demo
         const float height = scene_row_height(layout_);
         const float gap = scene_row_gap(layout_);
 #if EPOCH_PARTICLE_WITH_EPOCHGUI
-        const epochengine::gui_lib::SelectableListLayoutOptions options{
+        const epochnamespace::gui_lib::SelectableListLayoutOptions options{
             .viewport = {
                 .position = { panel_left + padding, top },
                 .size = {
@@ -239,7 +239,7 @@ namespace epochengine::particle::demo
             .content_padding_x = 0.0F,
             .content_padding_y = 0.0F
         };
-        const auto row = epochengine::gui_lib::make_selectable_row_layout(
+        const auto row = epochnamespace::gui_lib::make_selectable_row_layout(
             options,
             static_cast<std::uint32_t>(index),
             {});

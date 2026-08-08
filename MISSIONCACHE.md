@@ -2,6 +2,14 @@
 
 No requested work is silently discarded. This cache separates the completed v0.1.0 baseline from explicitly deferred expansion work.
 
+## Completed in v0.3.0
+
+- [x] GPU-rasterized 5x7 text with one packed render instance per glyph.
+- [x] Bit-exact integer glyph payloads with continuous strokes at fractional sizes.
+- [x] Repository-wide minimum readable font sizing and DPI-aware metrics.
+- [x] EpochGui v0.87.43 header/module/selectable-list integration.
+
+
 ## Completed in v0.1.0
 
 - [x] C++23 static-library-first `EpochParticleEngine` repository.

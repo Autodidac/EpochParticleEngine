@@ -16,7 +16,8 @@ namespace epochengine::particle
     {
         circle,
         rectangle,
-        rounded_rectangle
+        rounded_rectangle,
+        bitmap_glyph
     };
 
     struct RenderItem
@@ -27,6 +28,7 @@ namespace epochengine::particle
         float rotation{};
         PrimitiveShape shape{ PrimitiveShape::circle };
         float corner_radius{};
+        std::uint64_t glyph_bitmap{};
         std::int32_t layer{};
     };
 

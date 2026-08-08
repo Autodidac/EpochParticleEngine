@@ -28,8 +28,8 @@
             float color[4]{};
             float rotation{};
             float shape{};
-            float corner_radius{};
-            float padding{};
+            std::uint32_t payload_low{};
+            std::uint32_t payload_high{};
         };
 
         static_assert(sizeof(GpuRenderItem) == 48);
@@ -39,7 +39,7 @@
         static_assert(offsetof(GpuRenderItem, color) == 16);
         static_assert(offsetof(GpuRenderItem, rotation) == 32);
         static_assert(offsetof(GpuRenderItem, shape) == 36);
-        static_assert(offsetof(GpuRenderItem, corner_radius) == 40);
+        static_assert(offsetof(GpuRenderItem, payload_low) == 40);
 
         struct PushConstants
         {
@@ -54,8 +54,14 @@
                 .color = { item.color.r, item.color.g, item.color.b, item.color.a },
                 .rotation = item.rotation,
                 .shape = static_cast<float>(std::to_underlying(item.shape)),
-                .corner_radius = item.corner_radius,
-                .padding = 0.0F
+                .payload_low = item.shape == PrimitiveShape::bitmap_glyph
+                    ? static_cast<std::uint32_t>(
+                        item.glyph_bitmap & 0xffffffffULL)
+                    : std::bit_cast<std::uint32_t>(item.corner_radius),
+                .payload_high = item.shape == PrimitiveShape::bitmap_glyph
+                    ? static_cast<std::uint32_t>(
+                        item.glyph_bitmap >> 32U)
+                    : 0U
             };
         }
 

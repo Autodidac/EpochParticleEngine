@@ -14,8 +14,8 @@ struct RenderItem
     vec4 color;
     float rotation;
     float shape;
-    float corner_radius;
-    float padding;
+    uint payload_low;
+    uint payload_high;
 };
 
 layout(std430, set = 0, binding = 0) readonly buffer RenderItems
@@ -33,6 +33,7 @@ layout(location = 1) out vec2 fragment_local;
 layout(location = 2) flat out float fragment_shape;
 layout(location = 3) flat out float fragment_corner_radius;
 layout(location = 4) flat out vec2 fragment_half_extent;
+layout(location = 5) flat out uvec2 fragment_glyph_bitmap;
 
 const vec2 corners[6] = vec2[](
     vec2(-1.0, -1.0),
@@ -65,8 +66,9 @@ void main()
     fragment_color = item.color;
     fragment_local = local;
     fragment_shape = item.shape;
-    fragment_corner_radius = item.corner_radius;
+    fragment_corner_radius = uintBitsToFloat(item.payload_low);
     fragment_half_extent = item.half_extent;
+    fragment_glyph_bitmap = uvec2(item.payload_low, item.payload_high);
 }
 )glsl";
 
@@ -83,6 +85,7 @@ layout(location = 1) in vec2 fragment_local;
 layout(location = 2) flat in float fragment_shape;
 layout(location = 3) flat in float fragment_corner_radius;
 layout(location = 4) flat in vec2 fragment_half_extent;
+layout(location = 5) flat in uvec2 fragment_glyph_bitmap;
 
 layout(location = 0) out vec4 output_color;
 
@@ -90,7 +93,22 @@ void main()
 {
     float coverage = 1.0;
 
-    if (fragment_shape < 0.5)
+    if (fragment_shape > 2.5)
+    {
+        vec2 glyph_uv = clamp(
+            fragment_local * 0.5 + 0.5,
+            vec2(0.0),
+            vec2(0.999999));
+        uvec2 cell = uvec2(floor(glyph_uv * vec2(5.0, 7.0)));
+        uint bit_index = cell.y * 5u + cell.x;
+        uint word = bit_index < 32u
+            ? fragment_glyph_bitmap.x
+            : fragment_glyph_bitmap.y;
+        uint word_bit = bit_index < 32u ? bit_index : bit_index - 32u;
+        if ((word & (1u << word_bit)) == 0u)
+            discard;
+    }
+    else if (fragment_shape < 0.5)
     {
         float radius = length(fragment_local);
         float antialias = max(fwidth(radius) * 1.5, 0.002);

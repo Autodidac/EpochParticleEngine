@@ -125,7 +125,7 @@ target_link_libraries(MySimulation PRIVATE EpochParticleEngine::Core)
 
 ## Vulkan renderer
 
-`EpochParticleEngine::Vulkan` consumes finalized `RenderFrame` batches and renders instanced quads. Circle and rounded-rectangle coverage are evaluated in the fragment shader.
+`EpochParticleEngine::Vulkan` consumes finalized `RenderFrame` batches and renders instanced quads. Circle, rounded-rectangle, and packed 5x7 glyph coverage are evaluated in the fragment shader, so text costs one GPU instance per character.
 
 The backend includes:
 
@@ -143,7 +143,7 @@ The backend includes:
 ## Epoch ecosystem boundaries
 
 - **EpochPlatformEngine:** owns process entry, native windows, event pumps, context routes, and owner-thread callbacks. `EpochParticleLab` uses its static internal entrypoint.
-- **EpochGui:** optional and read-only from this repository's perspective. Enable it to consume public layout primitives; EpochParticleEngine does not modify EpochGui.
+- **EpochGui:** optional and read-only from this repository's perspective. The adapter targets v0.87.43's public `epoch/gui` layout API; font rasterization remains in EpochParticleEngine's GPU renderer.
 - **EpochAudioEngine:** can consume `Simulation::events()` for impacts, explosions, ignition, and emission sounds without entering deterministic state.
 - **EpochMediaEngine:** can capture finalized render frames through a separate adapter without entering simulation hashes.
 

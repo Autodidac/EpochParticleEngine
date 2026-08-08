@@ -44,10 +44,10 @@ The simulation's internal `TaskArena` may use background workers, but scene phas
 3. `Simulation::advance` accumulates elapsed time and executes zero or more fixed ticks.
 4. The active scene performs read-only neighbor queries and disjoint parallel writes.
 5. Stable serial phases compact particles, perform reductions, and publish events.
-6. The scene appends renderer-neutral primitives to `RenderFrame`.
-7. The optional UI appends primitives to the same stream.
+6. The scene appends renderer-neutral primitives and packed glyph commands to `RenderFrame`.
+7. The optional UI appends layout-driven shapes and one command per visible glyph to the same stream.
 8. `RenderFrame::finalize` performs a stable layer sort.
-9. The Vulkan backend uploads the batch and issues one instanced draw.
+9. The Vulkan backend uploads the batch, issues one instanced draw, and rasterizes glyph bitmaps in the fragment shader.
 
 ## Particle storage
 

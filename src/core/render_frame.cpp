@@ -28,7 +28,8 @@ namespace epochengine::particle
         {
             return shape == PrimitiveShape::circle
                 || shape == PrimitiveShape::rectangle
-                || shape == PrimitiveShape::rounded_rectangle;
+                || shape == PrimitiveShape::rounded_rectangle
+                || shape == PrimitiveShape::bitmap_glyph;
         }
 
         [[nodiscard]] constexpr Glyph glyph_for(char character) noexcept
@@ -93,6 +94,25 @@ namespace epochengine::particle
             case '?': return { 0x0E, 0x11, 0x01, 0x02, 0x04, 0x00, 0x04 };
             default: return {};
             }
+        }
+
+        [[nodiscard]] constexpr std::uint64_t pack_glyph(Glyph glyph) noexcept
+        {
+            std::uint64_t bitmap = 0;
+            for (std::size_t row = 0; row < glyph.size(); ++row)
+            {
+                for (std::size_t column = 0; column < bitmap_glyph_width; ++column)
+                {
+                    const std::uint8_t mask = static_cast<std::uint8_t>(
+                        1U << (bitmap_glyph_width - 1U - column));
+                    if ((glyph[row] & mask) != 0)
+                    {
+                        const std::size_t bit = row * bitmap_glyph_width + column;
+                        bitmap |= std::uint64_t{ 1 } << bit;
+                    }
+                }
+            }
+            return bitmap;
         }
     }
 
@@ -261,34 +281,26 @@ namespace epochengine::particle
             {
                 if (character != ' ')
                 {
-                    const Glyph glyph = glyph_for(character);
-                    for (std::size_t row = 0; row < glyph.size(); ++row)
+                    const std::uint64_t glyph_bitmap = pack_glyph(
+                        glyph_for(character));
+                    if (glyph_bitmap != 0)
                     {
-                        for (std::size_t column = 0;
-                             column < bitmap_glyph_width;
-                             ++column)
-                        {
-                            const std::uint8_t mask = static_cast<std::uint8_t>(
-                                1U << (bitmap_glyph_width - 1U - column));
-                            if ((glyph[row] & mask) == 0)
-                                continue;
-
-                            rectangle(
-                                {
-                                    cursor_x
-                                        + (static_cast<float>(column) + 0.5F)
-                                            * metrics.cell_size,
-                                    cursor_y
-                                        + (static_cast<float>(row) + 0.5F)
-                                            * metrics.cell_size
-                                },
-                                {
-                                    metrics.cell_size * 0.45F,
-                                    metrics.cell_size * 0.45F
-                                },
-                                color,
-                                layer);
-                        }
+                        add({
+                            .center = {
+                                cursor_x + metrics.glyph_width * 0.5F,
+                                cursor_y + metrics.glyph_height * 0.5F
+                            },
+                            .half_extent = {
+                                metrics.glyph_width * 0.5F,
+                                metrics.glyph_height * 0.5F
+                            },
+                            .color = color,
+                            .rotation = 0.0F,
+                            .shape = PrimitiveShape::bitmap_glyph,
+                            .corner_radius = 0.0F,
+                            .glyph_bitmap = glyph_bitmap,
+                            .layer = layer
+                        });
                     }
                 }
                 cursor_x += metrics.advance;

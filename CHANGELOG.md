@@ -2,6 +2,26 @@
 
 All notable changes are recorded here. The project follows semantic versioning.
 
+## 0.3.0 - 2026-08-08
+
+### GPU text
+
+- Replaced CPU expansion of every bitmap cell with one packed glyph instance per character; the Vulkan fragment shader now resolves the 5x7 bitmap on the GPU.
+- Carries glyph payloads as bit-exact integers through the storage buffer and shader interface, preserving continuous vertical strokes at fractional framebuffer scales.
+- Enforced the documented 12-logical-pixel readability floor for every text caller, including scene-owned 10-11 px labels.
+
+### EpochGui
+
+- Updated the optional adapter to the EpochGui v0.87.43 `epoch/gui` headers, version contract, namespace, module, and selectable-list API.
+- Removed the obsolete `gui/font.hpp` dependency; current EpochGui intentionally leaves font rendering to the host renderer.
+
+### Validation
+
+- Added regression coverage for the readability floor and one-GPU-instance-per-glyph command generation.
+- Built strict CPU Debug and Vulkan Release configurations with warnings as errors, including the real EpochGui v0.87.43 checkout.
+- Captured the running Vulkan lab after shader compilation and verified complete strokes, consistent sizing, clean `WM_CLOSE` exit, and released file handles.
+
+
 ## 0.2.2 - 2026-08-08
 
 ### Fixed

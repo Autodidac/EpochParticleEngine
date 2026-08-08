@@ -6,7 +6,7 @@ namespace epochengine::particle
 {
     inline constexpr std::string_view library_name = "EpochParticleEngine";
     inline constexpr int version_major = 0;
-    inline constexpr int version_minor = 2;
-    inline constexpr int version_patch = 2;
-    inline constexpr std::string_view version_string = "0.2.2";
+    inline constexpr int version_minor = 3;
+    inline constexpr int version_patch = 0;
+    inline constexpr std::string_view version_string = "0.3.0";
 }
