@@ -30,12 +30,24 @@ namespace epochengine::particle::vulkan::detail
         const VkInstance instance,
         const NativeSurface& surface) noexcept
     {
-        if (surface.kind != NativeSurfaceKind::xlib ||
-            surface.display == nullptr || surface.value == 0)
+        if (surface.kind != NativeSurfaceKind::xlib
+            || surface.display == nullptr
+            || surface.value == 0)
         {
             return std::unexpected(RendererError{
                 RendererErrorCode::invalid_window,
                 "Xlib Vulkan surface requires a valid Display and Window"
+            });
+        }
+
+        const auto create_xlib_surface =
+            reinterpret_cast<PFN_vkCreateXlibSurfaceKHR>(
+                vkGetInstanceProcAddr(instance, "vkCreateXlibSurfaceKHR"));
+        if (create_xlib_surface == nullptr)
+        {
+            return std::unexpected(RendererError{
+                RendererErrorCode::initialization_failed,
+                "Vulkan loader did not expose vkCreateXlibSurfaceKHR"
             });
         }
 
@@ -47,7 +59,7 @@ namespace epochengine::particle::vulkan::detail
             .window = static_cast<::Window>(surface.value)
         };
         VkSurfaceKHR result_surface = VK_NULL_HANDLE;
-        const VkResult result = vkCreateXlibSurfaceKHR(
+        const VkResult result = create_xlib_surface(
             instance,
             &create_info,
             nullptr,
@@ -56,8 +68,8 @@ namespace epochengine::particle::vulkan::detail
         {
             return std::unexpected(RendererError{
                 RendererErrorCode::initialization_failed,
-                "vkCreateXlibSurfaceKHR failed with VkResult " +
-                    std::to_string(static_cast<std::int32_t>(result))
+                "vkCreateXlibSurfaceKHR failed with VkResult "
+                    + std::to_string(static_cast<std::int32_t>(result))
             });
         }
         return result_surface;
@@ -65,8 +77,9 @@ namespace epochengine::particle::vulkan::detail
 
     NativeExtent query_extent(const NativeSurface& surface) noexcept
     {
-        if (surface.kind != NativeSurfaceKind::xlib ||
-            surface.display == nullptr || surface.value == 0)
+        if (surface.kind != NativeSurfaceKind::xlib
+            || surface.display == nullptr
+            || surface.value == 0)
         {
             return {};
         }
@@ -75,8 +88,9 @@ namespace epochengine::particle::vulkan::detail
         if (XGetWindowAttributes(
                 static_cast<Display*>(surface.display),
                 static_cast<::Window>(surface.value),
-                &attributes) == 0 ||
-            attributes.width <= 0 || attributes.height <= 0)
+                &attributes) == 0
+            || attributes.width <= 0
+            || attributes.height <= 0)
         {
             return {};
         }
