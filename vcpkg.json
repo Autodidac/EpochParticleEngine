@@ -1,8 +1,8 @@
 {
   "$schema": "https://raw.githubusercontent.com/microsoft/vcpkg-tool/main/docs/vcpkg.schema.json",
   "name": "epoch-particle-engine",
-  "version-semver": "0.1.5",
-  "description": "Deterministic grid and physics particle simulation with a Vulkan renderer",
+  "version-semver": "0.2.0",
+  "description": "Deterministic grid and physics particle simulation with Vulkan rendering and Particle Studio",
   "license": "MIT",
   "dependencies": [
     "shaderc",
