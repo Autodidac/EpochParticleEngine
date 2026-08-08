@@ -5,8 +5,8 @@ cmake_minimum_required(VERSION 3.28)
 set(CMAKE_CXX_SCAN_FOR_MODULES OFF)
 
 project(EpochParticleEngine
-    VERSION 0.1.5
-    DESCRIPTION "Deterministic grid and physics particle simulation engine with Vulkan rendering"
+    VERSION 0.2.0
+    DESCRIPTION "Deterministic grid and physics particle simulation engine with Vulkan rendering and Particle Studio"
     LANGUAGES CXX)
 include("${CMAKE_CURRENT_LIST_DIR}/cmake/project_parts/part00.cmake")
 include("${CMAKE_CURRENT_LIST_DIR}/cmake/project_parts/part01.cmake")
