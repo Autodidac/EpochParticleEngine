@@ -32,7 +32,7 @@ namespace epochengine::particle
             return 0;
 
         const std::uint32_t threshold =
-            static_cast<std::uint32_t>(-exclusive_upper_bound) % exclusive_upper_bound;
+            (std::uint32_t{ 0 } - exclusive_upper_bound) % exclusive_upper_bound;
         for (;;)
         {
             const std::uint32_t value = next_u32();
